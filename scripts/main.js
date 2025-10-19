@@ -19,63 +19,67 @@ function updateDebug(message) {
     }
 }
 
-// Create letters immediately
-createLetters();
+// Wait a bit longer before creating letters to ensure AR is ready
+setTimeout(() => {
+    createLetters();
+}, 1000);
 
 function createLetters() {
     updateDebug("Creating letters...");
     
     if (!lettersContainer) {
         console.error("Letters container not found!");
+        updateDebug("ERROR: No container!");
         return;
     }
     
     // Clear any existing letters
     lettersContainer.innerHTML = '';
     
-    // Create letters with simple positioning that should work
+    // Create letters with very visible styling
     for (let i = 0; i < targetWord.length; i++) {
         const letter = targetWord[i];
         console.log("Creating letter:", letter);
         
-        // Create main entity
-        const entity = document.createElement("a-entity");
+        // Create a container entity for each letter
+        const letterEntity = document.createElement("a-entity");
         
-        // Simple positions in front of camera
+        // Position them closer and more spread out
         const positions = [
-            { x: -2, y: 1.5, z: -3 },   // B - Left
-            { x: -0.5, y: 2, z: -3 },   // I - Left center
-            { x: 0.5, y: 1, z: -3 },    // K - Right center
-            { x: 2, y: 1.5, z: -3 }     // E - Right
+            { x: -1.5, y: 1.5, z: -2 },   // B - Left
+            { x: -0.5, y: 2.5, z: -2 },   // I - Left center, higher
+            { x: 0.5, y: 0.5, z: -2 },    // K - Right center, lower
+            { x: 1.5, y: 1.5, z: -2 }     // E - Right
         ];
         
         const pos = positions[i];
-        entity.setAttribute("position", `${pos.x} ${pos.y} ${pos.z}`);
+        letterEntity.setAttribute("position", `${pos.x} ${pos.y} ${pos.z}`);
         
-        // Create visible letter with high contrast
-        entity.setAttribute("text", {
-            value: letter,
-            color: "#FFD700",
-            align: "center",
-            width: 8,
-            shader: "msdf",
-            font: "roboto"
-        });
+        // Create the background box first
+        const backgroundBox = document.createElement("a-box");
+        backgroundBox.setAttribute("position", "0 0 0");
+        backgroundBox.setAttribute("width", "1");
+        backgroundBox.setAttribute("height", "1");
+        backgroundBox.setAttribute("depth", "0.1");
+        backgroundBox.setAttribute("color", "#000000");
+        backgroundBox.setAttribute("opacity", "0.9");
         
-        // Add dark background for visibility
-        entity.setAttribute("geometry", {
-            primitive: "plane",
-            width: 1.2,
-            height: 1.2
-        });
-        entity.setAttribute("material", {
-            color: "#000000",
-            opacity: 0.8,
-            transparent: true
-        });
+        // Create the text
+        const textElement = document.createElement("a-text");
+        textElement.setAttribute("value", letter);
+        textElement.setAttribute("position", "0 0 0.06"); // In front of box
+        textElement.setAttribute("align", "center");
+        textElement.setAttribute("color", "#FFD700");
+        textElement.setAttribute("width", "10");
+        textElement.setAttribute("shader", "msdf");
+        textElement.setAttribute("font", "roboto");
         
-        // Gentle floating animation
-        entity.setAttribute("animation", {
+        // Add both to the letter entity
+        letterEntity.appendChild(backgroundBox);
+        letterEntity.appendChild(textElement);
+        
+        // Add floating animation
+        letterEntity.setAttribute("animation", {
             property: "position",
             dir: "alternate",
             dur: 3000 + (i * 300),
@@ -84,36 +88,76 @@ function createLetters() {
             to: `${pos.x} ${pos.y + 0.3} ${pos.z}`
         });
         
-        // Letter data for interaction
-        entity.setAttribute("data-letter", letter);
-        entity.setAttribute("data-index", i);
-        entity.setAttribute("cursor-listener", "");
+        // Add rotation for better visibility
+        letterEntity.setAttribute("animation__rotate", {
+            property: "rotation",
+            dur: 6000 + (i * 1000),
+            easing: "linear",
+            loop: true,
+            to: "0 360 0"
+        });
         
-        lettersContainer.appendChild(entity);
+        // Letter data for interaction
+        letterEntity.setAttribute("data-letter", letter);
+        letterEntity.setAttribute("data-index", i);
+        letterEntity.setAttribute("cursor-listener", "");
+        
+        lettersContainer.appendChild(letterEntity);
         console.log(`Letter ${letter} created at position: ${pos.x}, ${pos.y}, ${pos.z}`);
     }
     
-    updateDebug(`Created ${lettersContainer.children.length} letters`);
+    // Add some highly visible test objects
+    const testObjects = [
+        { type: "sphere", pos: "0 1 -1.5", color: "#FF0000", size: "0.3" },
+        { type: "box", pos: "-1 2 -1.5", color: "#00FF00", size: "0.3" },
+        { type: "cylinder", pos: "1 2 -1.5", color: "#0000FF", size: "0.3" }
+    ];
     
-    // Add a test sphere to verify 3D rendering
-    const testSphere = document.createElement("a-sphere");
-    testSphere.setAttribute("position", "0 0.5 -2");
-    testSphere.setAttribute("radius", "0.2");
-    testSphere.setAttribute("color", "#FF0000");
-    testSphere.setAttribute("animation", {
-        property: "rotation",
-        dur: 2000,
-        loop: true,
-        to: "360 0 0"
+    testObjects.forEach((obj, index) => {
+        const testEl = document.createElement(`a-${obj.type}`);
+        testEl.setAttribute("position", obj.pos);
+        testEl.setAttribute("color", obj.color);
+        
+        if (obj.type === "sphere") {
+            testEl.setAttribute("radius", obj.size);
+        } else if (obj.type === "box") {
+            testEl.setAttribute("width", obj.size);
+            testEl.setAttribute("height", obj.size);
+            testEl.setAttribute("depth", obj.size);
+        } else if (obj.type === "cylinder") {
+            testEl.setAttribute("radius", obj.size);
+            testEl.setAttribute("height", obj.size);
+        }
+        
+        testEl.setAttribute("animation", {
+            property: "rotation",
+            dur: 2000,
+            loop: true,
+            to: "360 360 0"
+        });
+        
+        lettersContainer.appendChild(testEl);
     });
-    lettersContainer.appendChild(testSphere);
-    updateDebug("Test sphere added");
+    
+    updateDebug(`Created ${lettersContainer.children.length} objects total (${targetWord.length} letters + 3 test shapes)`);
+    
+    // Log what's actually in the container
+    setTimeout(() => {
+        console.log("Container children:", lettersContainer.children.length);
+        for (let i = 0; i < lettersContainer.children.length; i++) {
+            const child = lettersContainer.children[i];
+            console.log(`Child ${i}:`, child.tagName, child.getAttribute('position'));
+        }
+        
+        updateDebug(`Container has ${lettersContainer.children.length} children`);
+    }, 500);
 }
 
 // Mobile interaction
 AFRAME.registerComponent('cursor-listener', {
     init: function () {
         const el = this.el;
+        console.log('Cursor listener added to:', el.getAttribute('data-letter'));
         
         // Touch events for mobile
         el.addEventListener('touchstart', function (evt) {
@@ -156,17 +200,17 @@ function captureLetter(letter, index, element) {
         easing: "easeOutBounce"
     });
     
-    // Change to green
-    element.setAttribute("text", {
-        value: letter,
-        color: "#00FF00",
-        align: "center",
-        width: 8,
-        shader: "msdf",
-        font: "roboto"
-    });
+    // Change text color to green
+    const textEl = element.querySelector('a-text');
+    if (textEl) {
+        textEl.setAttribute('color', '#00FF00');
+    }
     
-    element.setAttribute('material', 'color', '#004400');
+    // Change background to green
+    const boxEl = element.querySelector('a-box');
+    if (boxEl) {
+        boxEl.setAttribute('color', '#004400');
+    }
     
     // Haptic feedback
     if (navigator.vibrate) {
@@ -197,6 +241,9 @@ if (captureButton) {
                 if (letterElement) {
                     captureLetter(letterElement.getAttribute('data-letter'), i, letterElement);
                     break;
+                } else {
+                    console.log("Letter element not found for index:", i);
+                    updateDebug(`Letter ${i} not found`);
                 }
             }
         }
