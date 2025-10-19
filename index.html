@@ -211,7 +211,17 @@
       }
     }
 
+    function updateLoadingScreen(title, message, showButton = false, buttonText = "Retry") {
+      const loadingScreen = document.getElementById('loadingScreen');
+      loadingScreen.innerHTML = `
+        <h1>${title}</h1>
+        <p>${message}</p>
+        ${showButton ? `<button onclick="location.reload()">${buttonText}</button>` : ''}
+      `;
+    }
+
     updateDebug('Device: ' + (isMobile ? 'Mobile' : 'Desktop'));
+    updateDebug('Protocol: ' + location.protocol);
 
     // Start button handler
     document.getElementById('startButton').addEventListener('click', function() {
@@ -220,50 +230,46 @@
 
     async function startARExperience() {
       updateDebug('Starting AR...');
+      updateLoadingScreen('🎯 Word Chase AR', 'Initializing camera...');
       
       try {
-        // Request permissions
-        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-          updateDebug('Requesting camera...');
-          
-          const stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { 
-              facingMode: 'environment',
-              width: { ideal: 1280 },
-              height: { ideal: 720 }
-            } 
-          });
-          
-          // Stop the stream as AR.js will handle it
-          stream.getTracks().forEach(track => track.stop());
-          updateDebug('Camera access granted');
-        }
+        // Don't request camera permissions manually - let AR.js handle it
+        updateDebug('Skipping manual camera request - letting AR.js handle it');
 
         // Request device orientation on iOS
         if (typeof DeviceOrientationEvent.requestPermission === 'function') {
           updateDebug('Requesting orientation...');
-          const response = await DeviceOrientationEvent.requestPermission();
-          updateDebug('Orientation: ' + response);
+          try {
+            const response = await DeviceOrientationEvent.requestPermission();
+            updateDebug('Orientation: ' + response);
+          } catch (e) {
+            updateDebug('Orientation permission failed: ' + e.message);
+          }
         }
 
-        // Hide loading screen and show AR
-        document.getElementById('loadingScreen').style.display = 'none';
-        document.getElementById('scene').style.display = 'block';
-        document.getElementById('wordDisplay').style.display = 'block';
-        document.getElementById('captureButton').style.display = 'block';
-        document.getElementById('instructions').style.display = 'block';
-        document.getElementById('debugInfo').style.display = 'block';
-        
-        gameStarted = true;
-        updateDebug('AR started');
+        updateLoadingScreen('🎯 Word Chase AR', 'Starting AR camera...');
+
+        // Hide loading screen and show AR immediately
+        setTimeout(() => {
+          document.getElementById('loadingScreen').style.display = 'none';
+          document.getElementById('scene').style.display = 'block';
+          document.getElementById('wordDisplay').style.display = 'block';
+          document.getElementById('captureButton').style.display = 'block';
+          document.getElementById('instructions').style.display = 'block';
+          document.getElementById('debugInfo').style.display = 'block';
+          
+          gameStarted = true;
+          updateDebug('AR UI shown');
+        }, 1000);
         
         // Check for video element after AR initializes
         setTimeout(() => {
           const video = document.querySelector('video');
           if (video) {
             updateDebug('Video found: ' + video.videoWidth + 'x' + video.videoHeight);
+            updateDebug('Video ready: ' + video.readyState);
           } else {
-            updateDebug('No video element found');
+            updateDebug('No video element found yet');
           }
         }, 3000);
         
@@ -277,17 +283,27 @@
           document.body.appendChild(script);
         }, 2000);
 
+        // Monitor for video stream after longer delay
+        setTimeout(() => {
+          const video = document.querySelector('video');
+          if (video && video.videoWidth > 0) {
+            updateDebug('Camera working: ' + video.videoWidth + 'x' + video.videoHeight);
+          } else {
+            updateDebug('Camera may not be working - check permissions');
+            // Don't show error automatically - user can see debug info
+          }
+        }, 5000);
+
       } catch (error) {
         console.error('AR initialization failed:', error);
         updateDebug('Failed: ' + error.message);
         
-        // Show fallback message
-        document.getElementById('loadingScreen').innerHTML = `
-          <h1>⚠️ Camera Access Required</h1>
-          <p>Please allow camera access and try again</p>
-          <p>Make sure you're using HTTPS</p>
-          <button onclick="location.reload()">Retry</button>
-        `;
+        // Show error message with retry option
+        updateLoadingScreen(
+          '⚠️ Camera Issue', 
+          `Error: ${error.message}<br><br>Please check:<br>• Camera permissions<br>• Using HTTPS<br>• Camera not in use by another app`, 
+          true
+        );
       }
     }
 
