@@ -60,7 +60,5 @@ const server = http.createServer((req, res) => {
   });
 });
 
-server.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}/`);
-  console.log('Press Ctrl+C to stop the server');
-});
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
