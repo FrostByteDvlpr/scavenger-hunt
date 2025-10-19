@@ -11,88 +11,128 @@ console.log("Container found:", !!lettersContainer);
 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 console.log("Mobile device:", isMobile);
 
-// Create letters after initialization
-setTimeout(() => {
-    createLetters();
-}, 3000);
+let debugInfo = document.getElementById('debugInfo');
+function updateDebug(message) {
+    console.log(message);
+    if (debugInfo) {
+        debugInfo.innerHTML = message;
+    }
+}
+
+// Create letters immediately with fallback positioning
+createLetters();
 
 function createLetters() {
-    console.log("Creating letters for mobile AR...");
+    updateDebug("Creating letters...");
     
     if (!lettersContainer) {
         console.error("Letters container not found!");
         return;
     }
     
-    // Create letters positioned for mobile AR experience
+    // Clear any existing letters
+    lettersContainer.innerHTML = '';
+    
+    // Create letters with GPS-like positioning for better mobile AR
     for (let i = 0; i < targetWord.length; i++) {
         const letter = targetWord[i];
         console.log("Creating letter:", letter);
         
+        // Create main entity
         const entity = document.createElement("a-entity");
         
-        // Position letters in a more mobile-friendly layout
-        // Spread them around so users can discover them by moving their phone
-        const positions = [
-            { x: -2, y: 1, z: -3 },   // B - Left
-            { x: 0, y: 2, z: -4 },    // I - Center high
-            { x: 2, y: 0.5, z: -2 }, // K - Right low  
-            { x: -1, y: 1.5, z: -5 } // E - Left back
+        // Use GPS positioning for more stable mobile AR
+        const gpsPositions = [
+            "40.7128, -74.0061, 20",  // B - North
+            "40.7127, -74.0060, 25",  // I - Center  
+            "40.7129, -74.0059, 30",  // K - East
+            "40.7126, -74.0060, 15"   // E - South
         ];
         
-        const pos = positions[i];
+        // Fallback to relative positioning if GPS doesn't work
+        const relativePositions = [
+            { x: -3, y: 2, z: -5 },   // B - Left back
+            { x: 0, y: 3, z: -4 },    // I - Center high
+            { x: 3, y: 1, z: -6 },    // K - Right back
+            { x: -1, y: 2.5, z: -3 } // E - Left front
+        ];
+        
+        const pos = relativePositions[i];
+        
+        // Try GPS positioning first, fallback to relative
+        if (isMobile) {
+            entity.setAttribute("gps-entity-place", {
+                latitude: 40.7128 + (i * 0.0001),
+                longitude: -74.0060 + (i * 0.0001)
+            });
+        }
+        
+        // Set relative position as backup
         entity.setAttribute("position", `${pos.x} ${pos.y} ${pos.z}`);
         
-        // Larger letters for mobile viewing
-        entity.setAttribute("text", {
-            value: letter,
-            color: "#FFD700",
-            align: "center",
-            width: 10,
-            shader: "msdf",
-            font: "roboto"
-        });
+        // Create visible letter with better contrast
+        entity.innerHTML = `
+            <a-box 
+                position="0 0 0"
+                scale="1.5 1.5 0.1" 
+                color="#000000" 
+                opacity="0.9">
+            </a-box>
+            <a-text 
+                value="${letter}"
+                position="0 0 0.1"
+                align="center"
+                color="#FFD700"
+                width="8"
+                shader="msdf"
+                geometry="primitive: plane; width: auto; height: auto">
+            </a-text>
+        `;
         
-        // Dark background for contrast
-        entity.setAttribute("geometry", {
-            primitive: "plane",
-            width: 1.2,
-            height: 1.2
-        });
-        entity.setAttribute("material", {
-            color: "#000000",
-            opacity: 0.8,
-            transparent: true
-        });
-        
-        // Floating animation
+        // Add floating animation
         entity.setAttribute("animation", {
             property: "position",
             dir: "alternate",
-            dur: 3000 + (i * 200),
+            dur: 3000 + (i * 300),
             easing: "easeInOutSine",
             loop: true,
-            to: `${pos.x} ${pos.y + 0.3} ${pos.z}`
+            to: `${pos.x} ${pos.y + 0.5} ${pos.z}`
+        });
+        
+        // Add rotation for visibility
+        entity.setAttribute("animation__rotate", {
+            property: "rotation",
+            dur: 8000 + (i * 1000),
+            easing: "linear",
+            loop: true,
+            to: "0 360 0"
         });
         
         // Letter data for interaction
         entity.setAttribute("data-letter", letter);
         entity.setAttribute("data-index", i);
+        entity.setAttribute("class", "letter-entity");
         entity.setAttribute("cursor-listener", "");
         
-        // Make letters more visible with glow effect
-        entity.setAttribute("material", {
-            color: "#222222",
-            opacity: 0.9,
-            transparent: true,
-            shader: "flat"
-        });
-        
         lettersContainer.appendChild(entity);
-        console.log(`Letter ${letter} positioned at: ${pos.x}, ${pos.y}, ${pos.z}`);
+        console.log(`Letter ${letter} created at position: ${pos.x}, ${pos.y}, ${pos.z}`);
     }
     
-    console.log("Created", lettersContainer.children.length, "letters");
+    updateDebug(`Created ${lettersContainer.children.length} letters`);
+    
+    // Add a test sphere to verify 3D rendering
+    const testSphere = document.createElement("a-sphere");
+    testSphere.setAttribute("position", "0 1 -2");
+    testSphere.setAttribute("radius", "0.3");
+    testSphere.setAttribute("color", "#FF0000");
+    testSphere.setAttribute("animation", {
+        property: "rotation",
+        dur: 2000,
+        loop: true,
+        to: "360 0 0"
+    });
+    lettersContainer.appendChild(testSphere);
+    updateDebug("Test sphere added");
 }
 
 // Enhanced mobile interaction
@@ -124,16 +164,16 @@ AFRAME.registerComponent('cursor-listener', {
 });
 
 function captureLetter(letter, index, element) {
-    console.log("Capturing letter:", letter);
+    updateDebug(`Capturing: ${letter}`);
     
     if (captured.includes(index)) {
-        console.log("Already captured");
+        updateDebug("Already captured");
         return;
     }
     
     captured.push(index);
     
-    // Enhanced mobile feedback
+    // Enhanced feedback
     element.setAttribute("animation__capture", {
         property: "scale",
         dur: 1000,
@@ -141,19 +181,18 @@ function captureLetter(letter, index, element) {
         easing: "easeOutBounce"
     });
     
-    // Change to green
-    element.setAttribute("text", {
-        value: letter,
-        color: "#00FF00",
-        align: "center",
-        width: 10,
-        shader: "msdf",
-        font: "roboto"
-    });
+    // Change color to green
+    const textEl = element.querySelector('a-text');
+    if (textEl) {
+        textEl.setAttribute('color', '#00FF00');
+    }
     
-    element.setAttribute('material', 'color', '#004400');
+    const boxEl = element.querySelector('a-box');
+    if (boxEl) {
+        boxEl.setAttribute('color', '#004400');
+    }
     
-    // Haptic feedback on mobile
+    // Haptic feedback
     if (navigator.vibrate) {
         navigator.vibrate(200);
     }
@@ -164,11 +203,11 @@ function captureLetter(letter, index, element) {
     }, 2000);
 }
 
-// Capture button with mobile optimization
+// Capture button
 const captureButton = document.getElementById("captureButton");
 if (captureButton) {
     captureButton.addEventListener("click", () => {
-        console.log("Capture button clicked");
+        updateDebug("Capture clicked");
         
         // Haptic feedback
         if (navigator.vibrate) {
@@ -185,11 +224,6 @@ if (captureButton) {
                 }
             }
         }
-    });
-    
-    // Prevent double-tap zoom on mobile
-    captureButton.addEventListener('touchend', function(e) {
-        e.preventDefault();
     });
 }
 
@@ -216,4 +250,4 @@ function checkProgress() {
     }
 }
 
-console.log("Mobile AR script loaded successfully");
+updateDebug("Game script loaded");
