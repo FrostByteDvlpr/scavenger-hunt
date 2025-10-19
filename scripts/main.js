@@ -4,171 +4,192 @@ const scene = document.querySelector("a-scene");
 const lettersContainer = document.getElementById("letters-container");
 
 console.log("Main script starting...");
-console.log("Scene found:", !!scene);
-console.log("Container found:", !!lettersContainer);
-
-// Detect if we're on mobile
-const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-console.log("Mobile device:", isMobile);
 
 let debugInfo = document.getElementById('debugInfo');
+let debugMessages = [];
+
 function updateDebug(message) {
     console.log(message);
+    debugMessages.push(message);
+    
+    // Keep only last 8 messages
+    if (debugMessages.length > 8) {
+        debugMessages = debugMessages.slice(-8);
+    }
+    
     if (debugInfo) {
-        debugInfo.innerHTML = message;
+        debugInfo.innerHTML = debugMessages.join('<br>');
+        debugInfo.style.display = 'block';
+        debugInfo.style.fontSize = '14px';
+        debugInfo.style.maxHeight = '200px';
+        debugInfo.style.overflow = 'scroll';
     }
 }
 
-// Diagnostics first
-function runDiagnostics() {
-    updateDebug("Running diagnostics...");
-    
-    console.log("Scene ready state:", scene.hasLoaded);
-    console.log("Scene object3D:", !!scene.object3D);
-    console.log("Container object3D:", !!lettersContainer.object3D);
-    
-    // Check if A-Frame is working at all
-    const camera = scene.querySelector('a-camera');
-    console.log("Camera found:", !!camera);
-    
-    if (camera && camera.object3D) {
-        console.log("Camera position:", camera.object3D.position);
-        console.log("Camera rotation:", camera.object3D.rotation);
-    }
-    
-    updateDebug("Diagnostics complete - check console");
-}
+updateDebug("Script loaded");
+updateDebug("Scene: " + (!!scene));
+updateDebug("Container: " + (!!lettersContainer));
 
-// Wait for scene to be ready, then run diagnostics
-if (scene.hasLoaded) {
-    runDiagnostics();
-    setTimeout(createSimpleTest, 500);
-} else {
-    scene.addEventListener('loaded', function() {
-        updateDebug("Scene loaded event fired");
-        runDiagnostics();
-        setTimeout(createSimpleTest, 500);
-    });
-}
+// Try multiple approaches
+let attempt = 0;
 
-// Create the simplest possible test
-function createSimpleTest() {
-    updateDebug("Creating simple test...");
+function tryCreateObjects() {
+    attempt++;
+    updateDebug(`Attempt ${attempt}: Creating objects...`);
     
-    if (!lettersContainer) {
-        updateDebug("ERROR: No container found!");
+    if (!scene || !lettersContainer) {
+        updateDebug("ERROR: Missing scene or container");
         return;
     }
     
     // Clear container
     lettersContainer.innerHTML = '';
     
-    // Create a single, very large, very close red box
-    const testBox = document.createElement("a-box");
-    testBox.setAttribute("position", "0 0 -1");  // Very close to camera
-    testBox.setAttribute("width", "2");
-    testBox.setAttribute("height", "2");
-    testBox.setAttribute("depth", "2");
-    testBox.setAttribute("color", "#FF0000");
-    testBox.setAttribute("id", "test-box");
-    
-    lettersContainer.appendChild(testBox);
-    
-    updateDebug("Added large red box at 0,0,-1");
-    console.log("Test box added:", testBox);
-    
-    // Check if it was actually added
-    setTimeout(() => {
-        const addedBox = document.getElementById("test-box");
-        console.log("Box in DOM:", !!addedBox);
-        console.log("Box object3D:", !!addedBox?.object3D);
-        console.log("Container children:", lettersContainer.children.length);
-        
-        if (addedBox && addedBox.object3D) {
-            console.log("Box world position:", addedBox.object3D.getWorldPosition(new THREE.Vector3()));
-            updateDebug("Box added successfully");
-        } else {
-            updateDebug("Box failed to create 3D object");
-        }
-    }, 1000);
-    
-    // Try adding letters after the box test
-    setTimeout(() => {
-        createBasicLetters();
-    }, 2000);
-}
-
-function createBasicLetters() {
-    updateDebug("Creating basic letters...");
-    
-    // Create very simple letters without complex styling
-    for (let i = 0; i < targetWord.length; i++) {
-        const letter = targetWord[i];
-        
-        // Create just a colored box with the letter as an attribute
-        const letterBox = document.createElement("a-box");
-        letterBox.setAttribute("position", `${i * 2 - 3} 1 -3`); // Spread out horizontally
-        letterBox.setAttribute("width", "1");
-        letterBox.setAttribute("height", "1");
-        letterBox.setAttribute("depth", "0.2");
-        letterBox.setAttribute("color", ["#FF0000", "#00FF00", "#0000FF", "#FFFF00"][i]); // Different colors
-        letterBox.setAttribute("data-letter", letter);
-        letterBox.setAttribute("data-index", i);
-        letterBox.setAttribute("id", `letter-${i}`);
-        
-        // Add simple rotation animation
-        letterBox.setAttribute("animation", {
-            property: "rotation",
-            dur: 2000,
-            loop: true,
-            to: "0 360 0"
-        });
-        
-        lettersContainer.appendChild(letterBox);
-        console.log(`Added letter box ${letter} at position ${i * 2 - 3}, 1, -3`);
+    // Method 1: Try creating objects directly in the scene (bypass container)
+    if (attempt === 1) {
+        updateDebug("Method 1: Direct to scene");
+        createDirectInScene();
     }
+    // Method 2: Try with container but different positioning
+    else if (attempt === 2) {
+        updateDebug("Method 2: Container with close positioning");
+        createInContainer();
+    }
+    // Method 3: Try with HTML instead of JavaScript creation
+    else if (attempt === 3) {
+        updateDebug("Method 3: HTML injection");
+        createWithHTML();
+    }
+}
+
+function createDirectInScene() {
+    // Create a big red box directly in the scene
+    const testBox = document.createElement("a-box");
+    testBox.setAttribute("position", "0 1.6 -2");  // At eye level
+    testBox.setAttribute("width", "1");
+    testBox.setAttribute("height", "1");
+    testBox.setAttribute("depth", "1");
+    testBox.setAttribute("color", "#FF0000");
+    testBox.setAttribute("id", "direct-box");
     
-    updateDebug(`Added ${targetWord.length} letter boxes`);
+    scene.appendChild(testBox);
+    updateDebug("Added box directly to scene");
     
-    // Final check
     setTimeout(() => {
-        console.log("Final container children count:", lettersContainer.children.length);
-        updateDebug(`Total objects: ${lettersContainer.children.length}`);
-        
-        // List all children
-        for (let i = 0; i < lettersContainer.children.length; i++) {
-            const child = lettersContainer.children[i];
-            console.log(`Child ${i}: ${child.tagName} at ${child.getAttribute('position')}`);
-        }
+        const box = document.getElementById("direct-box");
+        updateDebug("Direct box exists: " + !!box);
     }, 1000);
 }
 
-// Simplified capture button
+function createInContainer() {
+    // Try with container but very close positioning
+    const testSphere = document.createElement("a-sphere");
+    testSphere.setAttribute("position", "0 0 -0.5");  // Very close
+    testSphere.setAttribute("radius", "0.5");
+    testSphere.setAttribute("color", "#00FF00");
+    testSphere.setAttribute("id", "container-sphere");
+    
+    lettersContainer.appendChild(testSphere);
+    updateDebug("Added sphere to container");
+    
+    setTimeout(() => {
+        updateDebug("Container children: " + lettersContainer.children.length);
+    }, 1000);
+}
+
+function createWithHTML() {
+    // Try injecting HTML directly
+    lettersContainer.innerHTML = `
+        <a-cylinder position="1 0 -1" radius="0.3" height="1" color="#0000FF" id="html-cylinder">
+            <a-animation attribute="rotation" dur="2000" fill="forwards" to="0 360 0" repeat="indefinite"></a-animation>
+        </a-cylinder>
+        <a-text value="TEST" position="0 2 -2" align="center" color="#FFFFFF" width="20"></a-text>
+    `;
+    updateDebug("Injected HTML directly");
+    
+    setTimeout(() => {
+        const cylinder = document.getElementById("html-cylinder");
+        updateDebug("HTML cylinder exists: " + !!cylinder);
+    }, 1000);
+}
+
+// Start attempts
+setTimeout(() => {
+    tryCreateObjects();
+}, 1000);
+
+// Try again after 3 seconds if first attempt fails
+setTimeout(() => {
+    if (attempt < 2) {
+        tryCreateObjects();
+    }
+}, 4000);
+
+// Try third method after 6 seconds
+setTimeout(() => {
+    if (attempt < 3) {
+        tryCreateObjects();
+    }
+}, 7000);
+
+// Capture button for testing
 const captureButton = document.getElementById("captureButton");
 if (captureButton) {
     captureButton.addEventListener("click", () => {
-        updateDebug("Capture button clicked");
-        console.log("Available letters:", document.querySelectorAll('[data-letter]').length);
+        updateDebug("Button clicked!");
         
-        // Just remove the first available letter box
-        const letterBoxes = document.querySelectorAll('[data-letter]');
-        if (letterBoxes.length > 0) {
-            const firstBox = letterBoxes[0];
-            const letter = firstBox.getAttribute('data-letter');
-            updateDebug(`Captured: ${letter}`);
+        // Try to find ANY a-frame object
+        const allBoxes = document.querySelectorAll('a-box');
+        const allSpheres = document.querySelectorAll('a-sphere');
+        const allCylinders = document.querySelectorAll('a-cylinder');
+        
+        updateDebug(`Found: ${allBoxes.length} boxes, ${allSpheres.length} spheres, ${allCylinders.length} cylinders`);
+        
+        // If nothing exists, try creating something new
+        if (allBoxes.length === 0 && allSpheres.length === 0 && allCylinders.length === 0) {
+            updateDebug("Creating emergency test object...");
             
-            // Make it green and bigger
-            firstBox.setAttribute('color', '#00FF00');
-            firstBox.setAttribute('scale', '2 2 2');
+            const emergencyBox = document.createElement("a-box");
+            emergencyBox.setAttribute("position", "0 0 -1");
+            emergencyBox.setAttribute("width", "3");
+            emergencyBox.setAttribute("height", "3");
+            emergencyBox.setAttribute("depth", "1");
+            emergencyBox.setAttribute("color", "#FFFF00");
             
-            setTimeout(() => {
-                firstBox.remove();
-                updateDebug(`Removed: ${letter}`);
-            }, 1000);
+            scene.appendChild(emergencyBox);
+            updateDebug("Emergency box created");
         } else {
-            updateDebug("No letters found to capture");
+            // Change color of first found object
+            const firstObj = allBoxes[0] || allSpheres[0] || allCylinders[0];
+            if (firstObj) {
+                firstObj.setAttribute('color', '#FF00FF');
+                updateDebug("Changed object color to pink");
+            }
         }
     });
 }
 
-updateDebug("Simplified script loaded");
+// Scene diagnostics
+if (scene) {
+    scene.addEventListener('loaded', function() {
+        updateDebug("Scene loaded event");
+    });
+    
+    scene.addEventListener('renderstart', function() {
+        updateDebug("Rendering started");
+    });
+    
+    setTimeout(() => {
+        updateDebug("Scene hasLoaded: " + scene.hasLoaded);
+        
+        const camera = scene.querySelector('a-camera');
+        updateDebug("Camera found: " + !!camera);
+        
+        if (camera) {
+            const pos = camera.getAttribute('position');
+            updateDebug("Camera pos: " + (pos || 'default'));
+        }
+    }, 2000);
+}
+
+updateDebug("All event listeners set up");
