@@ -82,7 +82,7 @@
       cursor: pointer;
       z-index: 5;
       transform-origin: center;
-      transition: all 0.3s ease;
+      transition: all 0.2s ease;
       text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
       box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
     }
@@ -204,6 +204,11 @@
     let gameStarted = false;
     let letters = [];
     
+    // Device orientation tracking
+    let initialOrientation = { alpha: 0, beta: 0, gamma: 0 };
+    let currentOrientation = { alpha: 0, beta: 0, gamma: 0 };
+    let orientationInitialized = false;
+    
     let debugInfo = document.getElementById('debugInfo');
     
     function updateDebug(message) {
@@ -222,6 +227,14 @@
       updateDebug('Starting camera...');
       
       try {
+        // Request device orientation permission on iOS
+        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+          const permission = await DeviceOrientationEvent.requestPermission();
+          if (permission !== 'granted') {
+            throw new Error('Device orientation permission denied');
+          }
+        }
+        
         const stream = await navigator.mediaDevices.getUserMedia({ 
           video: { 
             facingMode: 'environment',
@@ -243,6 +256,9 @@
         
         updateDebug('Camera started!');
         
+        // Set up device orientation tracking
+        setupOrientationTracking();
+        
         // Start the letter hunt
         setTimeout(() => {
           createFloatingLetters();
@@ -260,6 +276,32 @@
       }
     }
 
+    function setupOrientationTracking() {
+      if (window.DeviceOrientationEvent) {
+        window.addEventListener('deviceorientation', function(event) {
+          if (!orientationInitialized) {
+            initialOrientation = {
+              alpha: event.alpha || 0,
+              beta: event.beta || 0,
+              gamma: event.gamma || 0
+            };
+            orientationInitialized = true;
+            updateDebug('Orientation initialized');
+          }
+          
+          currentOrientation = {
+            alpha: event.alpha || 0,
+            beta: event.beta || 0,
+            gamma: event.gamma || 0
+          };
+          
+          updateLetterPositions();
+        });
+      } else {
+        updateDebug('Device orientation not supported');
+      }
+    }
+
     function createFloatingLetters() {
       updateDebug('Creating floating letters...');
       
@@ -271,7 +313,7 @@
       });
       letters = [];
       
-      // Create letters positioned randomly on screen
+      // Create letters with 3D-like positioning
       for (let i = 0; i < targetWord.length; i++) {
         const letter = targetWord[i];
         const letterElement = document.createElement('div');
@@ -280,16 +322,19 @@
         letterElement.setAttribute('data-letter', letter);
         letterElement.setAttribute('data-index', i);
         
-        // Random positioning (avoid edges)
-        const x = 20 + Math.random() * 60; // 20-80% of screen width
-        const y = 20 + Math.random() * 60; // 20-80% of screen height
-        
-        letterElement.style.left = x + '%';
-        letterElement.style.top = y + '%';
-        
-        // Floating animation
-        letterElement.style.animation = `float ${3 + Math.random() * 2}s ease-in-out infinite`;
-        letterElement.style.animationDelay = `${i * 0.5}s`;
+        // Give each letter a 3D world position
+        const letterData = {
+          letter: letter,
+          index: i,
+          element: letterElement,
+          // 3D world coordinates (will be converted to screen coords)
+          worldX: (i - 1.5) * 200, // Spread letters horizontally
+          worldY: Math.sin(i) * 100, // Vary height
+          worldZ: -300 + (i * 50), // Vary depth
+          baseWorldX: (i - 1.5) * 200,
+          baseWorldY: Math.sin(i) * 100,
+          baseWorldZ: -300 + (i * 50)
+        };
         
         // Click handler
         letterElement.addEventListener('click', function() {
@@ -303,19 +348,57 @@
         });
         
         document.body.appendChild(letterElement);
+        letters.push(letterData);
         
-        letters.push({
-          letter: letter,
-          index: i,
-          element: letterElement,
-          x: x,
-          y: y
-        });
-        
-        updateDebug(`Added letter ${letter} at ${x.toFixed(0)}%, ${y.toFixed(0)}%`);
+        updateDebug(`Added letter ${letter}`);
       }
       
       updateDebug(`Created ${letters.length} floating letters`);
+      updateLetterPositions();
+    }
+
+    function updateLetterPositions() {
+      if (!orientationInitialized || letters.length === 0) return;
+      
+      // Calculate orientation differences
+      const deltaAlpha = (currentOrientation.alpha - initialOrientation.alpha) * Math.PI / 180;
+      const deltaBeta = (currentOrientation.beta - initialOrientation.beta) * Math.PI / 180;
+      const deltaGamma = (currentOrientation.gamma - initialOrientation.gamma) * Math.PI / 180;
+      
+      letters.forEach(letterData => {
+        if (!letterData.element.parentNode) return;
+        
+        // Apply rotation to world coordinates
+        let x = letterData.baseWorldX;
+        let y = letterData.baseWorldY;
+        let z = letterData.baseWorldZ;
+        
+        // Simple rotation around Y axis (left-right phone movement)
+        const rotatedX = x * Math.cos(-deltaAlpha) - z * Math.sin(-deltaAlpha);
+        const rotatedZ = x * Math.sin(-deltaAlpha) + z * Math.cos(-deltaAlpha);
+        
+        // Simple rotation around X axis (up-down phone movement)  
+        const rotatedY = y * Math.cos(deltaBeta) - rotatedZ * Math.sin(deltaBeta);
+        const finalZ = y * Math.sin(deltaBeta) + rotatedZ * Math.cos(deltaBeta);
+        
+        // Convert 3D world coordinates to 2D screen coordinates
+        const screenX = window.innerWidth / 2 + rotatedX;
+        const screenY = window.innerHeight / 2 - rotatedY;
+        
+        // Only show letters that are "in front" of the camera
+        if (finalZ < 0) {
+          letterData.element.style.left = screenX + 'px';
+          letterData.element.style.top = screenY + 'px';
+          letterData.element.style.display = 'block';
+          
+          // Scale based on distance (closer = bigger)
+          const scale = Math.max(0.5, 1 + finalZ / 500);
+          letterData.element.style.transform = `scale(${scale})`;
+        } else {
+          // Hide letters that are "behind" the camera
+          letterData.element.style.display = 'none';
+        }
+      });
     }
 
     function captureLetter(letter, index, element) {
@@ -341,6 +424,8 @@
         if (element.parentNode) {
           element.parentNode.removeChild(element);
         }
+        // Remove from letters array
+        letters = letters.filter(l => l.index !== index);
         checkProgress();
       }, 1000);
     }
@@ -353,7 +438,7 @@
       for (let i = 0; i < targetWord.length; i++) {
         if (!captured.includes(i)) {
           const letterElement = document.querySelector(`[data-index="${i}"]`);
-          if (letterElement) {
+          if (letterElement && letterElement.style.display !== 'none') {
             captureLetter(letterElement.getAttribute('data-letter'), i, letterElement);
             break;
           }
