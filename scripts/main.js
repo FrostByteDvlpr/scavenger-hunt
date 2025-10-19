@@ -19,7 +19,7 @@ function updateDebug(message) {
     }
 }
 
-// Create letters immediately with fallback positioning
+// Create letters immediately
 createLetters();
 
 function createLetters() {
@@ -33,7 +33,7 @@ function createLetters() {
     // Clear any existing letters
     lettersContainer.innerHTML = '';
     
-    // Create letters with GPS-like positioning for better mobile AR
+    // Create letters with simple positioning that should work
     for (let i = 0; i < targetWord.length; i++) {
         const letter = targetWord[i];
         console.log("Creating letter:", letter);
@@ -41,77 +41,52 @@ function createLetters() {
         // Create main entity
         const entity = document.createElement("a-entity");
         
-        // Use GPS positioning for more stable mobile AR
-        const gpsPositions = [
-            "40.7128, -74.0061, 20",  // B - North
-            "40.7127, -74.0060, 25",  // I - Center  
-            "40.7129, -74.0059, 30",  // K - East
-            "40.7126, -74.0060, 15"   // E - South
+        // Simple positions in front of camera
+        const positions = [
+            { x: -2, y: 1.5, z: -3 },   // B - Left
+            { x: -0.5, y: 2, z: -3 },   // I - Left center
+            { x: 0.5, y: 1, z: -3 },    // K - Right center
+            { x: 2, y: 1.5, z: -3 }     // E - Right
         ];
         
-        // Fallback to relative positioning if GPS doesn't work
-        const relativePositions = [
-            { x: -3, y: 2, z: -5 },   // B - Left back
-            { x: 0, y: 3, z: -4 },    // I - Center high
-            { x: 3, y: 1, z: -6 },    // K - Right back
-            { x: -1, y: 2.5, z: -3 } // E - Left front
-        ];
-        
-        const pos = relativePositions[i];
-        
-        // Try GPS positioning first, fallback to relative
-        if (isMobile) {
-            entity.setAttribute("gps-entity-place", {
-                latitude: 40.7128 + (i * 0.0001),
-                longitude: -74.0060 + (i * 0.0001)
-            });
-        }
-        
-        // Set relative position as backup
+        const pos = positions[i];
         entity.setAttribute("position", `${pos.x} ${pos.y} ${pos.z}`);
         
-        // Create visible letter with better contrast
-        entity.innerHTML = `
-            <a-box 
-                position="0 0 0"
-                scale="1.5 1.5 0.1" 
-                color="#000000" 
-                opacity="0.9">
-            </a-box>
-            <a-text 
-                value="${letter}"
-                position="0 0 0.1"
-                align="center"
-                color="#FFD700"
-                width="8"
-                shader="msdf"
-                geometry="primitive: plane; width: auto; height: auto">
-            </a-text>
-        `;
+        // Create visible letter with high contrast
+        entity.setAttribute("text", {
+            value: letter,
+            color: "#FFD700",
+            align: "center",
+            width: 8,
+            shader: "msdf",
+            font: "roboto"
+        });
         
-        // Add floating animation
+        // Add dark background for visibility
+        entity.setAttribute("geometry", {
+            primitive: "plane",
+            width: 1.2,
+            height: 1.2
+        });
+        entity.setAttribute("material", {
+            color: "#000000",
+            opacity: 0.8,
+            transparent: true
+        });
+        
+        // Gentle floating animation
         entity.setAttribute("animation", {
             property: "position",
             dir: "alternate",
             dur: 3000 + (i * 300),
             easing: "easeInOutSine",
             loop: true,
-            to: `${pos.x} ${pos.y + 0.5} ${pos.z}`
-        });
-        
-        // Add rotation for visibility
-        entity.setAttribute("animation__rotate", {
-            property: "rotation",
-            dur: 8000 + (i * 1000),
-            easing: "linear",
-            loop: true,
-            to: "0 360 0"
+            to: `${pos.x} ${pos.y + 0.3} ${pos.z}`
         });
         
         // Letter data for interaction
         entity.setAttribute("data-letter", letter);
         entity.setAttribute("data-index", i);
-        entity.setAttribute("class", "letter-entity");
         entity.setAttribute("cursor-listener", "");
         
         lettersContainer.appendChild(entity);
@@ -122,8 +97,8 @@ function createLetters() {
     
     // Add a test sphere to verify 3D rendering
     const testSphere = document.createElement("a-sphere");
-    testSphere.setAttribute("position", "0 1 -2");
-    testSphere.setAttribute("radius", "0.3");
+    testSphere.setAttribute("position", "0 0.5 -2");
+    testSphere.setAttribute("radius", "0.2");
     testSphere.setAttribute("color", "#FF0000");
     testSphere.setAttribute("animation", {
         property: "rotation",
@@ -135,7 +110,7 @@ function createLetters() {
     updateDebug("Test sphere added");
 }
 
-// Enhanced mobile interaction
+// Mobile interaction
 AFRAME.registerComponent('cursor-listener', {
     init: function () {
         const el = this.el;
@@ -173,24 +148,25 @@ function captureLetter(letter, index, element) {
     
     captured.push(index);
     
-    // Enhanced feedback
+    // Visual feedback
     element.setAttribute("animation__capture", {
         property: "scale",
         dur: 1000,
-        to: "3 3 3",
+        to: "2 2 2",
         easing: "easeOutBounce"
     });
     
-    // Change color to green
-    const textEl = element.querySelector('a-text');
-    if (textEl) {
-        textEl.setAttribute('color', '#00FF00');
-    }
+    // Change to green
+    element.setAttribute("text", {
+        value: letter,
+        color: "#00FF00",
+        align: "center",
+        width: 8,
+        shader: "msdf",
+        font: "roboto"
+    });
     
-    const boxEl = element.querySelector('a-box');
-    if (boxEl) {
-        boxEl.setAttribute('color', '#004400');
-    }
+    element.setAttribute('material', 'color', '#004400');
     
     // Haptic feedback
     if (navigator.vibrate) {
