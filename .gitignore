@@ -1,0 +1,115 @@
+# --- Operating system ---
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Temporary editor swap files
+*~
+*.swp
+*.swo
+*.bak
+*.tmp
+
+# --- Node.js / frontend ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+dist/
+build/
+.next/
+.out/
+.cache/
+coverage/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+*.pytest_cache/
+.env/
+.venv/
+venv/
+venv*/
+pip-log.txt
+pip-delete-this-directory.txt
+.coverage
+.mypy_cache/
+.pyre/
+
+# --- Java / JVM ---
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+target/
+build/
+.gradle/
+.gradle-cache/
+hs_err_pid*
+
+# --- .NET / Visual Studio ---
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+bin/
+obj/
+
+# --- IDEs / Editors ---
+.vscode/
+.idea/
+*.iml
+*.ipr
+*.iws
+*.sublime-workspace
+*.sublime-project
+
+# --- Docker / Compose ---
+docker-compose.override.yml
+docker-compose.*.local.yml
+
+# --- Terraform ---
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+.terraform.lock.hcl
+
+# --- Secrets / envs / config ---
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# --- Logs ---
+*.log
+
+# --- Archives / build artifacts ---
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# --- Misc common ---
+coverage/
+report/
+.idea/
+.vscode/
