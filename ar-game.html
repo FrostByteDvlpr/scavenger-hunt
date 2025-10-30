@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Letter Chase AR - WebXR</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/webxr-polyfill@latest/build/webxr-polyfill.min.js"></script>
+  
+  <style>
+    body, html {
+      margin: 0; 
+      padding: 0;
+      overflow: hidden;
+      font-family: 'Arial', sans-serif;
+      background: #000;
+    }
+    
+    #loadingScreen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      color: white;
+      text-align: center;
+    }
+    
+    #loadingScreen h1 {
+      font-size: 2.5rem;
+      margin-bottom: 20px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+    
+    #startARButton {
+      background: #ff69b4;
+      color: white;
+      border: none;
+      padding: 20px 40px;
+      font-size: 1.5rem;
+      border-radius: 30px;
+      margin: 20px;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+      transition: all 0.3s ease;
+    }
+    
+    #startARButton:hover {
+      background: #ff1493;
+      transform: translateY(-2px);
+    }
+    
+    #fallbackButton {
+      background: #666;
+      color: white;
+      border: none;
+      padding: 15px 30px;
+      font-size: 1.2rem;
+      border-radius: 25px;
+      margin: 10px;
+      cursor: pointer;
+    }
+    
+    #ui {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.8);
+      color: white;
+      padding: 15px 25px;
+      border-radius: 15px;
+      z-index: 10;
+      text-align: center;
+      display: none;
+    }
+    
+    #captureButton {
+      position: fixed;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: #ff69b4;
+      color: white;
+      font-size: 1.8rem;
+      border: none;
+      border-radius: 50px;
+      padding: 20px 40px;
+      cursor: pointer;
+      z-index: 999;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+      transition: all 0.3s ease;
+      display: none;
+    }
+    
+    #captureButton.ready {
+      background-color: #00ff00;
+      animation: pulse 1s ease-in-out infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { transform: translateX(-50%) scale(1); }
+      50% { transform: translateX(-50%) scale(1.1); }
+    }
+    
+    #crosshair {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      width: 60px;
+      height: 60px;
+      transform: translate(-50%, -50%);
+      border: 3px solid rgba(255, 255, 255, 0.8);
+      border-radius: 50%;
+      z-index: 500;
+      pointer-events: none;
+      display: none;
+    }
+    
+    #crosshair::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 20px;
+      height: 3px;
+      background: rgba(255, 255, 255, 0.8);
+      transform: translate(-50%, -50%);
+    }
+    
+    #crosshair::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 3px;
+      height: 20px;
+      background: rgba(255, 255, 255, 0.8);
+      transform: translate(-50%, -50%);
+    }
+    
+    #crosshair.target-locked {
+      border-color: #00ff00;
+      box-shadow: 0 0 20px rgba(0, 255, 0, 0.6);
+    }
+    
+    #crosshair.target-locked::before,
+    #crosshair.target-locked::after {
+      background: #00ff00;
+    }
+
+    #winMessage {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 255, 0, 0.9);
+      color: white;
+      font-size: 2.5rem;
+      padding: 30px 50px;
+      border-radius: 20px;
+      text-align: center;
+      z-index: 1000;
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Loading Screen -->
+  <div id="loadingScreen">
+    <h1>🎯 Letter Chase AR</h1>
+    <p>Experience true AR with world-anchored letters!</p>
+    <p>Letters will stay locked in real 3D space as you move around.</p>
+    
+    <button id="startARButton">🚀 Start AR Mode</button>
+    <button id="fallbackButton">📱 Camera Mode (Fallback)</button>
+    
+    <div id="arSupport" style="margin-top: 20px; font-size: 0.9rem;">
+      <p id="supportStatus">Checking AR support...</p>
+    </div>
+  </div>
+
+  <!-- AR Scene -->
+  <a-scene 
+    id="arScene"
+    embedded 
+    arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
+    vr-mode-ui="enabled: false"
+    renderer="logarithmicDepthBuffer: true; colorManagement: true"
+    style="display: none;">
+    
+    <a-assets>
+      <a-mixin id="letter-style" 
+        text="color: #FFD700; align: center; width: 20; font: roboto"
+        material="color: #FFD700; transparent: true; opacity: 0.9"
+        animation__float="property: position; dir: alternate; dur: 3000; easing: easeInOutSine; loop: true"
+        animation__glow="property: material.opacity; from: 0.7; to: 1; dir: alternate; dur: 2000; loop: true">
+      </a-mixin>
+    </a-assets>
+
+    <!-- Camera with cursor for targeting -->
+    <a-camera 
+      id="arCamera" 
+      look-controls="enabled: true" 
+      wasd-controls="enabled: false"
+      position="0 1.6 0">
+      
+      <!-- Crosshair cursor -->
+      <a-cursor 
+        id="cursor"
+        position="0 0 -1"
+        geometry="primitive: ring; radiusInner: 0.02; radiusOuter: 0.03"
+        material="color: white; shader: flat; transparent: true; opacity: 0.8"
+        animation__click="property: scale; startEvents: click; from: 1 1 1; to: 1.2 1.2 1.2; dur: 150; dir: alternate">
+      </a-cursor>
+    </a-camera>
+
+    <!-- Container for floating letters -->
+    <a-entity id="letterContainer"></a-entity>
+    
+    <!-- Lighting -->
+    <a-light type="ambient" color="#404040"></a-light>
+    <a-light type="point" position="0 5 0" color="#ffffff"></a-light>
+  </a-scene>
+
+  <!-- UI Elements -->
+  <div id="ui">
+    <div>Find: <strong id="targetWord">BIKE</strong></div>
+    <div id="progress">_ _ _ _</div>
+    <div id="instructions">Point at letters to capture them!</div>
+  </div>
+
+  <div id="crosshair"></div>
+  <button id="captureButton">🎯 Capture!</button>
+  <div id="winMessage">🎉 You Win! 🎉</div>
+
+  <script>
+    const targetWord = "BIKE";
+    let captured = [];
+    let letters = [];
+    let arSupported = false;
+    let scene, camera, letterContainer;
+
+    // Check WebXR AR support
+    async function checkARSupport() {
+      const supportStatus = document.getElementById('supportStatus');
+      
+      if ('xr' in navigator) {
+        try {
+          arSupported = await navigator.xr.isSessionSupported('immersive-ar');
+          if (arSupported) {
+            supportStatus.textContent = '✅ AR supported! Recommended experience.';
+            document.getElementById('startARButton').style.background = '#00ff00';
+          } else {
+            supportStatus.textContent = '⚠️ AR not supported. Camera mode available.';
+          }
+        } catch (error) {
+          supportStatus.textContent = '⚠️ AR check failed. Camera mode available.';
+        }
+      } else {
+        supportStatus.textContent = '❌ WebXR not available. Camera mode only.';
+      }
+    }
+
+    // Start AR Mode
+    async function startARMode() {
+      try {
+        const arScene = document.getElementById('arScene');
+        arScene.style.display = 'block';
+        document.getElementById('loadingScreen').style.display = 'none';
+        
+        // Show UI elements
+        document.getElementById('ui').style.display = 'block';
+        document.getElementById('crosshair').style.display = 'block';
+        document.getElementById('captureButton').style.display = 'block';
+        
+        // Wait for A-Frame to initialize
+        arScene.addEventListener('loaded', initializeARGame);
+        
+        // If already loaded, initialize immediately
+        if (arScene.hasLoaded) {
+          initializeARGame();
+        }
+        
+      } catch (error) {
+        console.error('AR initialization failed:', error);
+        alert('AR failed to start. Try camera mode instead.');
+      }
+    }
+
+    function initializeARGame() {
+      scene = document.querySelector('a-scene');
+      camera = document.querySelector('#arCamera');
+      letterContainer = document.querySelector('#letterContainer');
+      
+      console.log('AR scene initialized');
+      createARLetters();
+      setupARTargeting();
+      updateProgress();
+    }
+
+    function createARLetters() {
+      // Clear existing letters
+      while (letterContainer.firstChild) {
+        letterContainer.removeChild(letterContainer.firstChild);
+      }
+      letters = [];
+
+      // Create letters positioned around the user in 3D space
+      for (let i = 0; i < targetWord.length; i++) {
+        const letter = targetWord[i];
+        
+        // Position letters in a circle around the user
+        const angle = (i / targetWord.length) * Math.PI * 2;
+        const radius = 3; // 3 meters from user
+        const x = Math.cos(angle) * radius;
+        const z = Math.sin(angle) * radius;
+        const y = 1.5 + Math.sin(i) * 0.5; // Vary height slightly
+        
+        // Create letter entity
+        const letterEntity = document.createElement('a-text');
+        letterEntity.setAttribute('mixin', 'letter-style');
+        letterEntity.setAttribute('value', letter);
+        letterEntity.setAttribute('position', `${x} ${y} ${z}`);
+        letterEntity.setAttribute('look-at', '#arCamera');
+        letterEntity.setAttribute('scale', '2 2 2');
+        letterEntity.setAttribute('data-letter', letter);
+        letterEntity.setAttribute('data-index', i);
+        
+        // Add floating animation with unique timing
+        letterEntity.setAttribute('animation__float', {
+          property: 'position',
+          from: `${x} ${y} ${z}`,
+          to: `${x} ${y + 0.3} ${z}`,
+          dir: 'alternate',
+          dur: 2000 + (i * 500),
+          loop: true,
+          easing: 'easeInOutSine'
+        });
+        
+        letterContainer.appendChild(letterEntity);
+        letters.push({
+          letter: letter,
+          index: i,
+          entity: letterEntity,
+          position: { x, y, z }
+        });
+      }
+      
+      console.log(`Created ${letters.length} AR letters`);
+    }
+
+    function setupARTargeting() {
+      // Set up raycaster for targeting
+      const cursor = document.querySelector('#cursor');
+      
+      cursor.addEventListener('click', function() {
+        captureTargetedLetter();
+      });
+      
+      // Update targeting feedback
+      setInterval(updateTargeting, 100);
+    }
+
+    function updateTargeting() {
+      // Use A-Frame's raycaster to find targeted objects
+      const camera = document.querySelector('#arCamera');
+      const raycaster = new THREE.Raycaster();
+      
+      // Get camera world position and direction
+      const cameraWorldPosition = new THREE.Vector3();
+      const cameraWorldDirection = new THREE.Vector3();
+      
+      camera.object3D.getWorldPosition(cameraWorldPosition);
+      camera.object3D.getWorldDirection(cameraWorldDirection);
+      
+      raycaster.set(cameraWorldPosition, cameraWorldDirection);
+      
+      // Find intersections with letters
+      let closestLetter = null;
+      let minDistance = Infinity;
+      
+      letters.forEach(letterData => {
+        if (captured.includes(letterData.index)) return;
+        
+        const letterObject = letterData.entity.object3D;
+        const intersects = raycaster.intersectObject(letterObject, true);
+        
+        if (intersects.length > 0 && intersects[0].distance < minDistance) {
+          minDistance = intersects[0].distance;
+          closestLetter = letterData;
+        }
+      });
+      
+      // Update UI based on targeting
+      const captureButton = document.getElementById('captureButton');
+      const crosshair = document.getElementById('crosshair');
+      
+      if (closestLetter && minDistance < 10) { // Within 10 meters
+        captureButton.classList.add('ready');
+        captureButton.textContent = `🎯 Capture ${closestLetter.letter}!`;
+        crosshair.classList.add('target-locked');
+      } else {
+        captureButton.classList.remove('ready');
+        captureButton.textContent = '🎯 Capture!';
+        crosshair.classList.remove('target-locked');
+      }
+    }
+
+    function captureTargetedLetter() {
+      // Same targeting logic as updateTargeting
+      const camera = document.querySelector('#arCamera');
+      const raycaster = new THREE.Raycaster();
+      
+      const cameraWorldPosition = new THREE.Vector3();
+      const cameraWorldDirection = new THREE.Vector3();
+      
+      camera.object3D.getWorldPosition(cameraWorldPosition);
+      camera.object3D.getWorldDirection(cameraWorldDirection);
+      
+      raycaster.set(cameraWorldPosition, cameraWorldDirection);
+      
+      let targetLetter = null;
+      let minDistance = Infinity;
+      
+      letters.forEach(letterData => {
+        if (captured.includes(letterData.index)) return;
+        
+        const letterObject = letterData.entity.object3D;
+        const intersects = raycaster.intersectObject(letterObject, true);
+        
+        if (intersects.length > 0 && intersects[0].distance < minDistance) {
+          minDistance = intersects[0].distance;
+          targetLetter = letterData;
+        }
+      });
+      
+      if (targetLetter && minDistance < 10) {
+        captureLetter(targetLetter);
+      } else {
+        alert('🎯 Point at a letter to capture it!\nMove closer or aim more precisely.');
+      }
+    }
+
+    function captureLetter(letterData) {
+      if (captured.includes(letterData.index)) return;
+      
+      captured.push(letterData.index);
+      
+      // Animate letter capture
+      letterData.entity.setAttribute('animation__capture', {
+        property: 'scale',
+        from: '2 2 2',
+        to: '0.1 0.1 0.1',
+        dur: 500,
+        easing: 'easeInQuad'
+      });
+      
+      letterData.entity.setAttribute('animation__spin', {
+        property: 'rotation',
+        from: '0 0 0',
+        to: '0 720 0',
+        dur: 500,
+        easing: 'easeInQuad'
+      });
+      
+      // Haptic feedback
+      if (navigator.vibrate) {
+        navigator.vibrate(200);
+      }
+      
+      setTimeout(() => {
+        letterData.entity.setAttribute('visible', false);
+        updateProgress();
+        checkWin();
+      }, 500);
+    }
+
+    function updateProgress() {
+      const progress = targetWord.split('')
+        .map((letter, i) => captured.includes(i) ? letter : '_')
+        .join(' ');
+      document.getElementById('progress').textContent = progress;
+    }
+
+    function checkWin() {
+      if (captured.length === targetWord.length) {
+        document.getElementById('winMessage').style.display = 'block';
+        
+        if (navigator.vibrate) {
+          navigator.vibrate([200, 100, 200, 100, 200]);
+        }
+        
+        setTimeout(() => {
+          document.getElementById('winMessage').style.display = 'none';
+          resetGame();
+        }, 3000);
+      }
+    }
+
+    function resetGame() {
+      captured = [];
+      createARLetters();
+      updateProgress();
+    }
+
+    // Event Listeners
+    document.getElementById('startARButton').addEventListener('click', startARMode);
+    
+    document.getElementById('fallbackButton').addEventListener('click', () => {
+      // Redirect to camera-based version
+      window.location.href = 'index.html';
+    });
+    
+    document.getElementById('captureButton').addEventListener('click', captureTargetedLetter);
+
+    // Initialize
+    checkARSupport();
+  </script>
+</body>
+</html>
