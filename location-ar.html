@@ -113,6 +113,52 @@
       0%, 100% { transform: translateX(-50%) scale(1); }
       50% { transform: translateX(-50%) scale(1.1); }
     }
+    
+    #crosshair {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      width: 60px;
+      height: 60px;
+      transform: translate(-50%, -50%);
+      border: 3px solid rgba(255, 255, 255, 0.8);
+      border-radius: 50%;
+      z-index: 500;
+      pointer-events: none;
+      display: none;
+    }
+    
+    #crosshair::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 20px;
+      height: 3px;
+      background: rgba(255, 255, 255, 0.8);
+      transform: translate(-50%, -50%);
+    }
+    
+    #crosshair::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 3px;
+      height: 20px;
+      background: rgba(255, 255, 255, 0.8);
+      transform: translate(-50%, -50%);
+    }
+    
+    #crosshair.target-locked {
+      border-color: #00ff00;
+      box-shadow: 0 0 20px rgba(0, 255, 0, 0.6);
+    }
+    
+    #crosshair.target-locked::before,
+    #crosshair.target-locked::after {
+      background: #00ff00;
+    }
   </style>
 </head>
 
@@ -141,13 +187,18 @@
     </div>
   </div>
 
+  <!-- Camera Video Background -->
+  <div id="cameraView" style="display: none;">
+    <video id="cameraVideo" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover; position: fixed; top: 0; left: 0; z-index: 0;"></video>
+  </div>
+
   <!-- AR Scene -->
   <a-scene 
     id="arScene"
     embedded 
-    arjs="sourceType: webcam; debugUIEnabled: false;"
+    background="transparent"
     vr-mode-ui="enabled: false"
-    style="display: none;">
+    style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; background: transparent;">
     
     <!-- Camera -->
     <a-camera 
@@ -179,6 +230,7 @@
     <canvas id="mapCanvas" width="146" height="146"></canvas>
   </div>
 
+  <div id="crosshair"></div>
   <button id="captureButton">🎯 Capture!</button>
 
   <script>
@@ -295,25 +347,60 @@
       return (bearing + 360) % 360; // Convert to 0-360 degrees
     }
 
-    function startLocationARMode() {
-      const arScene = document.getElementById('arScene');
-      arScene.style.display = 'block';
-      document.getElementById('loadingScreen').style.display = 'none';
-      
-      // Show UI elements
-      document.getElementById('ui').style.display = 'block';
-      document.getElementById('map').style.display = 'block';
-      document.getElementById('captureButton').style.display = 'block';
-      
-      // Initialize AR scene
-      scene = document.querySelector('a-scene');
-      camera = document.querySelector('#arCamera');
-      letterContainer = document.querySelector('#letterContainer');
-      
-      createLocationBasedLetters();
-      setupLocationTargeting();
-      updateLocationDisplay();
-      updateMiniMap();
+    async function startLocationARMode() {
+      try {
+        // Start camera feed first
+        await startCameraFeed();
+        
+        // Then show AR scene on top
+        const arScene = document.getElementById('arScene');
+        arScene.style.display = 'block';
+        document.getElementById('loadingScreen').style.display = 'none';
+        
+        // Show UI elements
+        document.getElementById('ui').style.display = 'block';
+        document.getElementById('map').style.display = 'block';
+        document.getElementById('crosshair').style.display = 'block';
+        document.getElementById('captureButton').style.display = 'block';
+        
+        // Initialize AR scene
+        scene = document.querySelector('a-scene');
+        camera = document.querySelector('#arCamera');
+        letterContainer = document.querySelector('#letterContainer');
+        
+        createLocationBasedLetters();
+        setupLocationTargeting();
+        updateLocationDisplay();
+        updateMiniMap();
+        
+      } catch (error) {
+        console.error('Failed to start AR mode:', error);
+        alert('Camera access failed. Please allow camera permissions and try again.');
+      }
+    }
+
+    async function startCameraFeed() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { 
+            facingMode: 'environment',
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          } 
+        });
+        
+        const video = document.getElementById('cameraVideo');
+        const cameraView = document.getElementById('cameraView');
+        
+        video.srcObject = stream;
+        cameraView.style.display = 'block';
+        
+        console.log('Camera feed started');
+        
+      } catch (error) {
+        console.error('Camera access failed:', error);
+        throw error;
+      }
     }
 
     function createLocationBasedLetters() {
@@ -342,16 +429,37 @@
         const z = -Math.cos(bearing * Math.PI / 180) * Math.min(distance / 10, 5);
         const y = 1.5;
         
-        // Create letter entity
+        // Create letter entity with better visibility
         const letterEntity = document.createElement('a-text');
         letterEntity.setAttribute('value', letter);
         letterEntity.setAttribute('position', `${x} ${y} ${z}`);
         letterEntity.setAttribute('look-at', '#arCamera');
-        letterEntity.setAttribute('scale', '3 3 3');
+        letterEntity.setAttribute('scale', '4 4 4');
         letterEntity.setAttribute('color', '#FFD700');
+        letterEntity.setAttribute('font', 'roboto');
         letterEntity.setAttribute('data-letter', letter);
         letterEntity.setAttribute('data-index', i);
         letterEntity.setAttribute('visible', distance < 50); // Only show if within 50m
+        
+        // Add background plane for better visibility
+        const background = document.createElement('a-plane');
+        background.setAttribute('position', '0 0 -0.1');
+        background.setAttribute('width', '1.5');
+        background.setAttribute('height', '1.5');
+        background.setAttribute('color', '#000000');
+        background.setAttribute('opacity', '0.7');
+        letterEntity.appendChild(background);
+        
+        // Add floating animation
+        letterEntity.setAttribute('animation', {
+          property: 'position',
+          from: `${x} ${y} ${z}`,
+          to: `${x} ${y + 0.5} ${z}`,
+          dir: 'alternate',
+          dur: 2000 + (i * 500),
+          loop: true,
+          easing: 'easeInOutSine'
+        });
         
         letterContainer.appendChild(letterEntity);
         
@@ -504,13 +612,16 @@
       
       // Update UI
       const captureButton = document.getElementById('captureButton');
+      const crosshair = document.getElementById('crosshair');
       
       if (closestLetter) {
         captureButton.classList.add('ready');
         captureButton.textContent = `🎯 Capture ${closestLetter.letter}! (${Math.round(closestLetter.distance)}m)`;
+        crosshair.classList.add('target-locked');
       } else {
         captureButton.classList.remove('ready');
         captureButton.textContent = '🎯 Get within 10m to capture!';
+        crosshair.classList.remove('target-locked');
       }
     }
 
