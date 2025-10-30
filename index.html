@@ -1,480 +1,169 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <title>Word Chase AR</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-  
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Letter Chase AR</title>
+  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ar.js@3.3.2/aframe/build/aframe-ar.min.js"></script>
   <style>
     body, html {
-      margin: 0; 
-      padding: 0;
+      margin: 0;
       overflow: hidden;
-      font-family: 'Comic Sans MS', 'Poppins', sans-serif;
-      background: transparent !important;
-      touch-action: manipulation;
-    }
-    
-    #cameraView {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
       height: 100%;
-      z-index: 0;
+      background: #000;
+      font-family: 'Comic Sans MS', sans-serif;
     }
-    
-    #cameraVideo {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-    
-    #loadingScreen {
+    #ui {
       position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      z-index: 1000;
-      color: white;
-      text-align: center;
-    }
-    
-    #loadingScreen h1 {
-      font-size: 2.5rem;
-      margin-bottom: 20px;
-      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-    }
-    
-    #loadingScreen p {
-      font-size: 1.2rem;
-      margin: 10px 0;
-    }
-    
-    #startButton {
-      background: #ff69b4;
-      color: white;
-      border: none;
-      padding: 15px 30px;
-      font-size: 1.3rem;
-      border-radius: 25px;
-      margin-top: 20px;
-      cursor: pointer;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-    }
-    
-    /* Floating letters overlay */
-    .floating-letter {
-      position: fixed;
-      background: rgba(0, 0, 0, 0.8);
-      color: #FFD700;
-      font-size: 3rem;
-      font-weight: bold;
-      padding: 15px 20px;
-      border-radius: 15px;
-      border: 3px solid #FFD700;
-      cursor: pointer;
-      z-index: 5;
-      transform-origin: center;
-      transition: all 0.2s ease;
-      text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-      box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
-    }
-    
-    .floating-letter:hover {
-      transform: scale(1.2);
-      box-shadow: 0 0 30px rgba(255, 215, 0, 0.5);
-    }
-    
-    .floating-letter.captured {
-      background: rgba(0, 150, 0, 0.8);
-      color: #00FF00;
-      border-color: #00FF00;
-      animation: captureAnimation 1s ease-out;
-    }
-    
-    @keyframes captureAnimation {
-      0% { transform: scale(1); }
-      50% { transform: scale(2) rotate(180deg); }
-      100% { transform: scale(0) rotate(360deg); opacity: 0; }
-    }
-    
-    @keyframes float {
-      0%, 100% { transform: translateY(0px) rotate(0deg); }
-      25% { transform: translateY(-10px) rotate(5deg); }
-      50% { transform: translateY(-5px) rotate(-5deg); }
-      75% { transform: translateY(-15px) rotate(2deg); }
-    }
-    
-    #wordDisplay {
-      position: fixed;
-      top: 20px;
+      bottom: 80px;
       left: 50%;
       transform: translateX(-50%);
-      background: rgba(255,255,255,0.95);
-      padding: 15px 25px;
-      border-radius: 15px;
-      font-size: 1.8rem;
-      z-index: 10;
-      border: 3px solid #000;
-      font-weight: bold;
-      display: none;
+      text-align: center;
+      color: white;
+      font-size: 2rem;
+      z-index: 1000;
     }
-    
-    #captureButton {
+    #capture-btn {
       position: fixed;
-      bottom: 40px;
+      bottom: 20px;
       left: 50%;
       transform: translateX(-50%);
       background-color: #ff69b4;
       color: white;
-      font-size: 2rem;
+      font-size: 1.4rem;
       border: none;
       border-radius: 50px;
-      padding: 20px 40px;
+      padding: 12px 32px;
       cursor: pointer;
       z-index: 999;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-      font-weight: bold;
-      display: none;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
     }
-    
-    #instructions {
+    #win-message {
       position: fixed;
-      bottom: 120px;
+      top: 40%;
       left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0,0,0,0.8);
-      color: white;
-      padding: 15px 25px;
-      border-radius: 10px;
-      z-index: 10;
-      text-align: center;
-      font-size: 1.1rem;
+      transform: translate(-50%, -50%);
+      background: rgba(255,255,255,0.9);
+      color: #333;
+      font-size: 2.5rem;
+      padding: 30px;
+      border-radius: 20px;
       display: none;
-      max-width: 90%;
+      z-index: 2000;
+      animation: pop 0.8s ease;
     }
-    
-    #debugInfo {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      background: rgba(0,0,0,0.7);
-      color: white;
-      padding: 10px;
-      border-radius: 5px;
-      z-index: 10;
-      font-size: 11px;
-      max-width: 200px;
-      display: none;
+    @keyframes pop {
+      0% { transform: scale(0.5) translate(-50%, -50%); opacity: 0; }
+      100% { transform: scale(1) translate(-50%, -50%); opacity: 1; }
     }
   </style>
 </head>
-
 <body>
-  <!-- Loading Screen -->
-  <div id="loadingScreen">
-    <h1>🎯 Word Chase AR</h1>
-    <p>Get ready to hunt for letters!</p>
-    <p>Move your phone around to find letters</p>
-    <p>Tap the letters to capture them!</p>
-    <button id="startButton">Start Letter Hunt</button>
+  <a-scene embedded arjs>
+    <a-entity id="letters"></a-entity>
+    <a-camera id="camera" position="0 1.6 0"></a-camera>
+  </a-scene>
+
+  <div id="ui">
+    <div id="progress">_ _ _ _</div>
   </div>
 
-  <!-- Camera View -->
-  <div id="cameraView" style="display: none;">
-    <video id="cameraVideo" autoplay playsinline muted></video>
-  </div>
+  <button id="capture-btn">Capture!</button>
 
-  <!-- Game UI -->
-  <div id="wordDisplay">Find: <strong id="targetWord">BIKE</strong></div>
-  <div id="instructions">Move around to hunt for letters!<br>Tap letters to capture them!</div>
-  <div id="debugInfo">Starting camera...</div>
-  <button id="captureButton">🎯 Capture Next!</button>
+  <div id="win-message">🎉 You Win! 🎉</div>
 
   <script>
     const targetWord = "BIKE";
-    const captured = [];
-    let gameStarted = false;
-    let letters = [];
-    
-    // Device orientation tracking
-    let initialOrientation = { alpha: 0, beta: 0, gamma: 0 };
-    let currentOrientation = { alpha: 0, beta: 0, gamma: 0 };
-    let orientationInitialized = false;
-    
-    let debugInfo = document.getElementById('debugInfo');
-    
-    function updateDebug(message) {
-      console.log(message);
-      if (debugInfo) {
-        debugInfo.innerHTML = message;
-      }
+    let captured = [];
+    const progressDisplay = document.getElementById("progress");
+    const winMessage = document.getElementById("win-message");
+
+    const lettersContainer = document.getElementById("letters");
+    const camera = document.getElementById("camera");
+    const letterEntities = [];
+
+    // Create floating 3D letters
+    for (let i = 0; i < targetWord.length; i++) {
+      const letter = targetWord[i];
+      const entity = document.createElement("a-entity");
+      entity.setAttribute("text", {
+        value: letter,
+        color: "#FFD700",
+        align: "center",
+        width: 4
+      });
+      const x = (Math.random() - 0.5) * 6;
+      const y = (Math.random() * 2) + 1;
+      const z = (Math.random() - 1.5) * -5;
+      entity.setAttribute("position", `${x} ${y} ${z}`);
+      entity.setAttribute("animation", `
+        property: position;
+        dir: alternate;
+        dur: ${1500 + Math.random()*1000};
+        easing: easeInOutSine;
+        loop: true;
+        to: ${x} ${y + 0.4} ${z};
+      `);
+      lettersContainer.appendChild(entity);
+      letterEntities.push({ letter, entity });
     }
 
-    // Start button handler
-    document.getElementById('startButton').addEventListener('click', function() {
-      startCameraExperience();
-    });
-
-    async function startCameraExperience() {
-      updateDebug('Starting camera...');
-      
-      try {
-        // Request device orientation permission on iOS
-        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-          const permission = await DeviceOrientationEvent.requestPermission();
-          if (permission !== 'granted') {
-            throw new Error('Device orientation permission denied');
-          }
-        }
-        
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { 
-            facingMode: 'environment',
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          } 
-        });
-        
-        const video = document.getElementById('cameraVideo');
-        video.srcObject = stream;
-        
-        // Hide loading screen and show camera
-        document.getElementById('loadingScreen').style.display = 'none';
-        document.getElementById('cameraView').style.display = 'block';
-        document.getElementById('wordDisplay').style.display = 'block';
-        document.getElementById('captureButton').style.display = 'block';
-        document.getElementById('instructions').style.display = 'block';
-        document.getElementById('debugInfo').style.display = 'block';
-        
-        updateDebug('Camera started!');
-        
-        // Set up device orientation tracking
-        setupOrientationTracking();
-        
-        // Start the letter hunt
-        setTimeout(() => {
-          createFloatingLetters();
-        }, 1000);
-
-      } catch (error) {
-        console.error('Camera failed:', error);
-        updateDebug('Camera failed: ' + error.message);
-        
-        document.getElementById('loadingScreen').innerHTML = `
-          <h1>⚠️ Camera Access Required</h1>
-          <p>Please allow camera access and try again</p>
-          <button onclick="location.reload()">Retry</button>
-        `;
-      }
+    function updateProgress() {
+      const progress = targetWord.split("")
+        .map(l => captured.includes(l) ? l : "_")
+        .join(" ");
+      progressDisplay.textContent = progress;
     }
 
-    function setupOrientationTracking() {
-      if (window.DeviceOrientationEvent) {
-        window.addEventListener('deviceorientation', function(event) {
-          if (!orientationInitialized) {
-            initialOrientation = {
-              alpha: event.alpha || 0,
-              beta: event.beta || 0,
-              gamma: event.gamma || 0
-            };
-            orientationInitialized = true;
-            updateDebug('Orientation initialized');
-          }
-          
-          currentOrientation = {
-            alpha: event.alpha || 0,
-            beta: event.beta || 0,
-            gamma: event.gamma || 0
-          };
-          
-          updateLetterPositions();
-        });
-      } else {
-        updateDebug('Device orientation not supported');
-      }
-    }
+    function checkCenteredLetter() {
+      const cameraPos = new THREE.Vector3();
+      const cameraEl = camera.object3D;
+      cameraEl.getWorldPosition(cameraPos);
 
-    function createFloatingLetters() {
-      updateDebug('Creating floating letters...');
-      
-      // Remove any existing letters
-      letters.forEach(letter => {
-        if (letter.element && letter.element.parentNode) {
-          letter.element.parentNode.removeChild(letter.element);
+      const cameraDir = new THREE.Vector3();
+      cameraEl.getWorldDirection(cameraDir);
+
+      let closest = null;
+      let minAngle = Infinity;
+
+      letterEntities.forEach(obj => {
+        if (captured.includes(obj.letter)) return;
+
+        const letterPos = new THREE.Vector3();
+        obj.entity.object3D.getWorldPosition(letterPos);
+
+        const toLetter = letterPos.clone().sub(cameraPos).normalize();
+        const angle = cameraDir.angleTo(toLetter);
+
+        if (angle < minAngle) {
+          minAngle = angle;
+          closest = obj;
         }
       });
-      letters = [];
-      
-      // Create letters with 3D-like positioning
-      for (let i = 0; i < targetWord.length; i++) {
-        const letter = targetWord[i];
-        const letterElement = document.createElement('div');
-        letterElement.className = 'floating-letter';
-        letterElement.textContent = letter;
-        letterElement.setAttribute('data-letter', letter);
-        letterElement.setAttribute('data-index', i);
-        
-        // Give each letter a 3D world position
-        const letterData = {
-          letter: letter,
-          index: i,
-          element: letterElement,
-          // 3D world coordinates (will be converted to screen coords)
-          worldX: (i - 1.5) * 200, // Spread letters horizontally
-          worldY: Math.sin(i) * 100, // Vary height
-          worldZ: -300 + (i * 50), // Vary depth
-          baseWorldX: (i - 1.5) * 200,
-          baseWorldY: Math.sin(i) * 100,
-          baseWorldZ: -300 + (i * 50)
-        };
-        
-        // Click handler
-        letterElement.addEventListener('click', function() {
-          captureLetter(letter, i, letterElement);
-        });
-        
-        // Touch handler for mobile
-        letterElement.addEventListener('touchstart', function(e) {
-          e.preventDefault();
-          captureLetter(letter, i, letterElement);
-        });
-        
-        document.body.appendChild(letterElement);
-        letters.push(letterData);
-        
-        updateDebug(`Added letter ${letter}`);
-      }
-      
-      updateDebug(`Created ${letters.length} floating letters`);
-      updateLetterPositions();
+
+      // Threshold: smaller angle means closer to the center (in front)
+      return (minAngle < 0.15) ? closest : null;
     }
 
-    function updateLetterPositions() {
-      if (!orientationInitialized || letters.length === 0) return;
-      
-      // Calculate orientation differences
-      const deltaAlpha = (currentOrientation.alpha - initialOrientation.alpha) * Math.PI / 180;
-      const deltaBeta = (currentOrientation.beta - initialOrientation.beta) * Math.PI / 180;
-      const deltaGamma = (currentOrientation.gamma - initialOrientation.gamma) * Math.PI / 180;
-      
-      letters.forEach(letterData => {
-        if (!letterData.element.parentNode) return;
-        
-        // Apply rotation to world coordinates
-        let x = letterData.baseWorldX;
-        let y = letterData.baseWorldY;
-        let z = letterData.baseWorldZ;
-        
-        // Simple rotation around Y axis (left-right phone movement)
-        const rotatedX = x * Math.cos(-deltaAlpha) - z * Math.sin(-deltaAlpha);
-        const rotatedZ = x * Math.sin(-deltaAlpha) + z * Math.cos(-deltaAlpha);
-        
-        // Simple rotation around X axis (up-down phone movement)  
-        const rotatedY = y * Math.cos(deltaBeta) - rotatedZ * Math.sin(deltaBeta);
-        const finalZ = y * Math.sin(deltaBeta) + rotatedZ * Math.cos(deltaBeta);
-        
-        // Convert 3D world coordinates to 2D screen coordinates
-        const screenX = window.innerWidth / 2 + rotatedX;
-        const screenY = window.innerHeight / 2 - rotatedY;
-        
-        // Only show letters that are "in front" of the camera
-        if (finalZ < 0) {
-          letterData.element.style.left = screenX + 'px';
-          letterData.element.style.top = screenY + 'px';
-          letterData.element.style.display = 'block';
-          
-          // Scale based on distance (closer = bigger)
-          const scale = Math.max(0.5, 1 + finalZ / 500);
-          letterData.element.style.transform = `scale(${scale})`;
-        } else {
-          // Hide letters that are "behind" the camera
-          letterData.element.style.display = 'none';
-        }
-      });
-    }
-
-    function captureLetter(letter, index, element) {
-      updateDebug(`Capturing: ${letter}`);
-      
-      if (captured.includes(index)) {
-        updateDebug("Already captured");
+    document.getElementById("capture-btn").addEventListener("click", () => {
+      const target = checkCenteredLetter();
+      if (!target) {
+        alert("No letter in view! Try pointing directly at one.");
         return;
       }
-      
-      captured.push(index);
-      
-      // Visual feedback
-      element.classList.add('captured');
-      
-      // Haptic feedback
-      if (navigator.vibrate) {
-        navigator.vibrate(200);
-      }
-      
-      // Remove after animation
-      setTimeout(() => {
-        if (element.parentNode) {
-          element.parentNode.removeChild(element);
-        }
-        // Remove from letters array
-        letters = letters.filter(l => l.index !== index);
-        checkProgress();
-      }, 1000);
-    }
 
-    // Capture button
-    document.getElementById('captureButton').addEventListener('click', () => {
-      updateDebug("Capture button clicked");
-      
-      // Capture first available letter
-      for (let i = 0; i < targetWord.length; i++) {
-        if (!captured.includes(i)) {
-          const letterElement = document.querySelector(`[data-index="${i}"]`);
-          if (letterElement && letterElement.style.display !== 'none') {
-            captureLetter(letterElement.getAttribute('data-letter'), i, letterElement);
-            break;
-          }
-        }
+      captured.push(target.letter);
+      target.entity.setAttribute("visible", false);
+      updateProgress();
+
+      if (captured.length === targetWord.length) {
+        winMessage.style.display = "block";
+        setTimeout(() => winMessage.style.display = "none", 3000);
       }
     });
 
-    function checkProgress() {
-      const wordDisplay = document.getElementById("targetWord");
-      if (wordDisplay) {
-        let displayWord = "";
-        for (let i = 0; i < targetWord.length; i++) {
-          displayWord += captured.includes(i) ? targetWord[i] : "_";
-        }
-        wordDisplay.textContent = displayWord;
-        
-        if (captured.length === targetWord.length) {
-          // Celebration
-          if (navigator.vibrate) {
-            navigator.vibrate([200, 100, 200, 100, 200]);
-          }
-          
-          setTimeout(() => {
-            alert("🎉 Congratulations! You found: " + targetWord);
-            
-            // Reset game
-            captured.length = 0;
-            setTimeout(() => {
-              createFloatingLetters();
-            }, 1000);
-          }, 500);
-        }
-      }
-    }
-
-    updateDebug("Script loaded - ready to start!");
+    updateProgress();
   </script>
 </body>
 </html>
