@@ -276,11 +276,29 @@
 <body>
   <!-- Loading Screen -->
   <div id="loadingScreen">
-    <h1>🎯 Word Chase AR</h1>
-    <p>Get ready to hunt for letters!</p>
-    <p>Move your phone around to find letters</p>
-    <p>Tap the letters to capture them!</p>
-    <button id="startButton">Start Letter Hunt</button>
+    <h1>🎯 Letter Chase AR</h1>
+    <p>Choose your AR experience:</p>
+    
+    <div style="margin: 30px 0;">
+      <button onclick="window.location.href='location-ar.html'" style="background: #00ff00; color: white; border: none; padding: 15px 25px; margin: 10px; border-radius: 20px; font-size: 1.2rem; cursor: pointer;">
+        🌍 GPS Mode (Like Pokémon GO)
+      </button>
+      <p style="font-size: 0.9rem; margin: 5px 0;">Walk around in real world to find letters at GPS coordinates</p>
+    </div>
+    
+    <div style="margin: 30px 0;">
+      <button onclick="window.location.href='ar-game.html'" style="background: #ff69b4; color: white; border: none; padding: 15px 25px; margin: 10px; border-radius: 20px; font-size: 1.2rem; cursor: pointer;">
+        🎯 WebXR AR Mode
+      </button>
+      <p style="font-size: 0.9rem; margin: 5px 0;">True AR with world-anchored 3D letters</p>
+    </div>
+    
+    <div style="margin: 30px 0;">
+      <button id="startButton" style="background: #666; color: white; border: none; padding: 15px 25px; margin: 10px; border-radius: 20px; font-size: 1.2rem; cursor: pointer;">
+        📱 Camera Mode (Basic)
+      </button>
+      <p style="font-size: 0.9rem; margin: 5px 0;">Simple camera overlay with swipe controls</p>
+    </div>
   </div>
 
   <!-- Camera View -->

@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Letter Chase AR - Location Based</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/aframe-ar@3.4.5/build/aframe-ar.min.js"></script>
+  
+  <style>
+    body, html {
+      margin: 0; 
+      padding: 0;
+      overflow: hidden;
+      font-family: 'Arial', sans-serif;
+      background: #000;
+    }
+    
+    #loadingScreen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      color: white;
+      text-align: center;
+      padding: 20px;
+    }
+    
+    #loadingScreen h1 {
+      font-size: 2.2rem;
+      margin-bottom: 20px;
+    }
+    
+    #startButton {
+      background: #ff69b4;
+      color: white;
+      border: none;
+      padding: 20px 40px;
+      font-size: 1.4rem;
+      border-radius: 30px;
+      margin: 20px;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    }
+    
+    #locationInfo {
+      background: rgba(0,0,0,0.8);
+      padding: 15px;
+      border-radius: 10px;
+      margin: 20px;
+      font-size: 0.9rem;
+    }
+    
+    #ui {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.85);
+      color: white;
+      padding: 15px 25px;
+      border-radius: 15px;
+      z-index: 10;
+      text-align: center;
+      display: none;
+      min-width: 300px;
+    }
+    
+    #map {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      width: 150px;
+      height: 150px;
+      background: rgba(0,0,0,0.8);
+      border: 2px solid #fff;
+      border-radius: 10px;
+      z-index: 10;
+      display: none;
+    }
+    
+    #captureButton {
+      position: fixed;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: #ff69b4;
+      color: white;
+      font-size: 1.8rem;
+      border: none;
+      border-radius: 50px;
+      padding: 20px 40px;
+      cursor: pointer;
+      z-index: 999;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+      transition: all 0.3s ease;
+      display: none;
+    }
+    
+    #captureButton.ready {
+      background-color: #00ff00;
+      animation: pulse 1s ease-in-out infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { transform: translateX(-50%) scale(1); }
+      50% { transform: translateX(-50%) scale(1.1); }
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Loading Screen -->
+  <div id="loadingScreen">
+    <h1>🌍 Location-Based Letter Hunt</h1>
+    <p>Like Pokémon GO - letters are placed at real GPS coordinates!</p>
+    <p>Walk around in the real world to find and capture letters.</p>
+    
+    <div id="locationInfo">
+      <div id="locationStatus">📍 Requesting location access...</div>
+      <div id="gpsInfo" style="margin-top: 10px; font-size: 0.8rem;"></div>
+    </div>
+    
+    <button id="startButton" disabled>🚀 Start Location Hunt</button>
+    
+    <div style="margin-top: 20px; font-size: 0.8rem; opacity: 0.8;">
+      <p>⚠️ For best experience:</p>
+      <ul style="text-align: left; display: inline-block;">
+        <li>Allow location access</li>
+        <li>Enable high accuracy GPS</li>
+        <li>Go outside for better GPS signal</li>
+        <li>Walk around to find letters</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- AR Scene -->
+  <a-scene 
+    id="arScene"
+    embedded 
+    arjs="sourceType: webcam; debugUIEnabled: false;"
+    vr-mode-ui="enabled: false"
+    style="display: none;">
+    
+    <!-- Camera -->
+    <a-camera 
+      id="arCamera" 
+      look-controls="enabled: true" 
+      wasd-controls="enabled: false"
+      position="0 1.6 0">
+    </a-camera>
+
+    <!-- Container for letters -->
+    <a-entity id="letterContainer"></a-entity>
+    
+    <!-- Lighting -->
+    <a-light type="ambient" color="#404040"></a-light>
+  </a-scene>
+
+  <!-- UI Elements -->
+  <div id="ui">
+    <div style="font-size: 1.2rem; margin-bottom: 10px;">
+      Find: <strong id="targetWord">BIKE</strong>
+    </div>
+    <div id="progress" style="font-size: 1.4rem; margin: 10px 0;">_ _ _ _</div>
+    <div id="locationDisplay" style="font-size: 0.8rem; margin-top: 10px;"></div>
+    <div id="nearbyLetters" style="margin-top: 10px;"></div>
+  </div>
+
+  <!-- Mini Map -->
+  <div id="map">
+    <canvas id="mapCanvas" width="146" height="146"></canvas>
+  </div>
+
+  <button id="captureButton">🎯 Capture!</button>
+
+  <script>
+    const targetWord = "BIKE";
+    let captured = [];
+    let letters = [];
+    let playerLocation = null;
+    let watchId = null;
+    let scene, camera, letterContainer;
+
+    // GPS coordinates for letters (relative to player's starting position)
+    const letterOffsets = [
+      { lat: 0.0001, lng: 0.0001 },   // B - ~11m North-East
+      { lat: 0.0001, lng: -0.0001 },  // I - ~11m North-West  
+      { lat: -0.0001, lng: 0.0001 },  // K - ~11m South-East
+      { lat: -0.0001, lng: -0.0001 }  // E - ~11m South-West
+    ];
+
+    let baseLocation = null; // Player's starting location
+
+    async function requestLocation() {
+      const locationStatus = document.getElementById('locationStatus');
+      const gpsInfo = document.getElementById('gpsInfo');
+      
+      if (!navigator.geolocation) {
+        locationStatus.textContent = '❌ Geolocation not supported';
+        return;
+      }
+
+      locationStatus.textContent = '📍 Getting your location...';
+
+      const options = {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      };
+
+      try {
+        // Get initial position
+        const position = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, options);
+        });
+
+        playerLocation = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          accuracy: position.coords.accuracy
+        };
+
+        baseLocation = { ...playerLocation }; // Store starting position
+
+        locationStatus.textContent = '✅ Location found!';
+        gpsInfo.innerHTML = `
+          📍 Lat: ${playerLocation.lat.toFixed(6)}<br>
+          📍 Lng: ${playerLocation.lng.toFixed(6)}<br>
+          🎯 Accuracy: ${Math.round(playerLocation.accuracy)}m
+        `;
+
+        document.getElementById('startButton').disabled = false;
+        document.getElementById('startButton').textContent = '🚀 Start Location Hunt';
+
+        // Start watching position
+        startLocationWatching();
+
+      } catch (error) {
+        locationStatus.textContent = '❌ Location access denied or failed';
+        gpsInfo.textContent = 'Please enable location services and refresh';
+        console.error('Location error:', error);
+      }
+    }
+
+    function startLocationWatching() {
+      const options = {
+        enableHighAccuracy: true,
+        timeout: 5000,
+        maximumAge: 1000
+      };
+
+      watchId = navigator.geolocation.watchPosition(
+        (position) => {
+          playerLocation = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+            accuracy: position.coords.accuracy
+          };
+          updateLocationDisplay();
+          updateLetterVisibility();
+          updateMiniMap();
+        },
+        (error) => {
+          console.error('Location tracking error:', error);
+        },
+        options
+      );
+    }
+
+    function calculateDistance(lat1, lng1, lat2, lng2) {
+      const R = 6371000; // Earth's radius in meters
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLng = (lng2 - lng1) * Math.PI / 180;
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLng/2) * Math.sin(dLng/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R * c; // Distance in meters
+    }
+
+    function calculateBearing(lat1, lng1, lat2, lng2) {
+      const dLng = (lng2 - lng1) * Math.PI / 180;
+      const y = Math.sin(dLng) * Math.cos(lat2 * Math.PI / 180);
+      const x = Math.cos(lat1 * Math.PI / 180) * Math.sin(lat2 * Math.PI / 180) -
+                Math.sin(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.cos(dLng);
+      const bearing = Math.atan2(y, x) * 180 / Math.PI;
+      return (bearing + 360) % 360; // Convert to 0-360 degrees
+    }
+
+    function startLocationARMode() {
+      const arScene = document.getElementById('arScene');
+      arScene.style.display = 'block';
+      document.getElementById('loadingScreen').style.display = 'none';
+      
+      // Show UI elements
+      document.getElementById('ui').style.display = 'block';
+      document.getElementById('map').style.display = 'block';
+      document.getElementById('captureButton').style.display = 'block';
+      
+      // Initialize AR scene
+      scene = document.querySelector('a-scene');
+      camera = document.querySelector('#arCamera');
+      letterContainer = document.querySelector('#letterContainer');
+      
+      createLocationBasedLetters();
+      setupLocationTargeting();
+      updateLocationDisplay();
+      updateMiniMap();
+    }
+
+    function createLocationBasedLetters() {
+      // Clear existing letters
+      while (letterContainer.firstChild) {
+        letterContainer.removeChild(letterContainer.firstChild);
+      }
+      letters = [];
+
+      // Create letters based on GPS coordinates
+      for (let i = 0; i < targetWord.length; i++) {
+        const letter = targetWord[i];
+        const offset = letterOffsets[i];
+        
+        // Calculate letter's GPS position
+        const letterLat = baseLocation.lat + offset.lat;
+        const letterLng = baseLocation.lng + offset.lng;
+        
+        // Calculate distance and bearing from player to letter
+        const distance = calculateDistance(playerLocation.lat, playerLocation.lng, letterLat, letterLng);
+        const bearing = calculateBearing(playerLocation.lat, playerLocation.lng, letterLat, letterLng);
+        
+        // Convert GPS position to 3D world position
+        // For AR, we'll position letters relative to player
+        const x = Math.sin(bearing * Math.PI / 180) * Math.min(distance / 10, 5); // Scale down distance
+        const z = -Math.cos(bearing * Math.PI / 180) * Math.min(distance / 10, 5);
+        const y = 1.5;
+        
+        // Create letter entity
+        const letterEntity = document.createElement('a-text');
+        letterEntity.setAttribute('value', letter);
+        letterEntity.setAttribute('position', `${x} ${y} ${z}`);
+        letterEntity.setAttribute('look-at', '#arCamera');
+        letterEntity.setAttribute('scale', '3 3 3');
+        letterEntity.setAttribute('color', '#FFD700');
+        letterEntity.setAttribute('data-letter', letter);
+        letterEntity.setAttribute('data-index', i);
+        letterEntity.setAttribute('visible', distance < 50); // Only show if within 50m
+        
+        letterContainer.appendChild(letterEntity);
+        
+        letters.push({
+          letter: letter,
+          index: i,
+          entity: letterEntity,
+          gpsPosition: { lat: letterLat, lng: letterLng },
+          distance: distance,
+          bearing: bearing
+        });
+      }
+      
+      updateProgress();
+    }
+
+    function updateLetterVisibility() {
+      if (!playerLocation || letters.length === 0) return;
+      
+      letters.forEach(letterData => {
+        if (captured.includes(letterData.index)) return;
+        
+        // Recalculate distance and position
+        const distance = calculateDistance(
+          playerLocation.lat, 
+          playerLocation.lng, 
+          letterData.gpsPosition.lat, 
+          letterData.gpsPosition.lng
+        );
+        
+        const bearing = calculateBearing(
+          playerLocation.lat, 
+          playerLocation.lng, 
+          letterData.gpsPosition.lat, 
+          letterData.gpsPosition.lng
+        );
+        
+        letterData.distance = distance;
+        letterData.bearing = bearing;
+        
+        // Update 3D position
+        const x = Math.sin(bearing * Math.PI / 180) * Math.min(distance / 10, 5);
+        const z = -Math.cos(bearing * Math.PI / 180) * Math.min(distance / 10, 5);
+        letterData.entity.setAttribute('position', `${x} 1.5 ${z}`);
+        
+        // Show/hide based on distance (within 50 meters)
+        letterData.entity.setAttribute('visible', distance < 50);
+      });
+      
+      updateNearbyLettersDisplay();
+    }
+
+    function updateLocationDisplay() {
+      if (!playerLocation) return;
+      
+      const locationDisplay = document.getElementById('locationDisplay');
+      locationDisplay.innerHTML = `
+        📍 ${playerLocation.lat.toFixed(6)}, ${playerLocation.lng.toFixed(6)}<br>
+        🎯 GPS Accuracy: ${Math.round(playerLocation.accuracy)}m
+      `;
+    }
+
+    function updateNearbyLettersDisplay() {
+      const nearbyLetters = document.getElementById('nearbyLetters');
+      const nearby = letters.filter(l => 
+        !captured.includes(l.index) && 
+        l.distance < 100
+      ).sort((a, b) => a.distance - b.distance);
+      
+      if (nearby.length > 0) {
+        nearbyLetters.innerHTML = '🔍 Nearby Letters:<br>' + 
+          nearby.map(l => 
+            `${l.letter}: ${Math.round(l.distance)}m ${getDirectionArrow(l.bearing)}`
+          ).join('<br>');
+      } else {
+        nearbyLetters.innerHTML = '🚶‍♀️ Walk around to find letters!';
+      }
+    }
+
+    function getDirectionArrow(bearing) {
+      const directions = ['⬆️', '↗️', '➡️', '↘️', '⬇️', '↙️', '⬅️', '↖️'];
+      const index = Math.round(bearing / 45) % 8;
+      return directions[index];
+    }
+
+    function updateMiniMap() {
+      const canvas = document.getElementById('mapCanvas');
+      const ctx = canvas.getContext('2d');
+      
+      // Clear canvas
+      ctx.clearRect(0, 0, 146, 146);
+      ctx.fillStyle = '#001122';
+      ctx.fillRect(0, 0, 146, 146);
+      
+      if (!playerLocation) return;
+      
+      const centerX = 73;
+      const centerY = 73;
+      const scale = 1000; // Adjust scale as needed
+      
+      // Draw player position (center)
+      ctx.fillStyle = '#00ff00';
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, 5, 0, 2 * Math.PI);
+      ctx.fill();
+      
+      // Draw letters
+      letters.forEach(letterData => {
+        if (captured.includes(letterData.index)) return;
+        
+        const dx = (letterData.gpsPosition.lng - playerLocation.lng) * scale;
+        const dy = (letterData.gpsPosition.lat - playerLocation.lat) * scale;
+        
+        const x = centerX + dx;
+        const y = centerY - dy; // Flip Y axis
+        
+        // Only draw if within map bounds
+        if (x >= 0 && x <= 146 && y >= 0 && y <= 146) {
+          ctx.fillStyle = letterData.distance < 50 ? '#ffd700' : '#666';
+          ctx.beginPath();
+          ctx.arc(x, y, 3, 0, 2 * Math.PI);
+          ctx.fill();
+          
+          // Draw letter
+          ctx.fillStyle = '#fff';
+          ctx.font = '10px Arial';
+          ctx.textAlign = 'center';
+          ctx.fillText(letterData.letter, x, y + 3);
+        }
+      });
+    }
+
+    function setupLocationTargeting() {
+      setInterval(updateTargeting, 500); // Update every 500ms for GPS
+    }
+
+    function updateTargeting() {
+      // Find closest letter within capture range (10 meters)
+      const captureRange = 10; // meters
+      let closestLetter = null;
+      let minDistance = Infinity;
+      
+      letters.forEach(letterData => {
+        if (captured.includes(letterData.index)) return;
+        if (letterData.distance < minDistance && letterData.distance < captureRange) {
+          minDistance = letterData.distance;
+          closestLetter = letterData;
+        }
+      });
+      
+      // Update UI
+      const captureButton = document.getElementById('captureButton');
+      
+      if (closestLetter) {
+        captureButton.classList.add('ready');
+        captureButton.textContent = `🎯 Capture ${closestLetter.letter}! (${Math.round(closestLetter.distance)}m)`;
+      } else {
+        captureButton.classList.remove('ready');
+        captureButton.textContent = '🎯 Get within 10m to capture!';
+      }
+    }
+
+    function captureNearestLetter() {
+      const captureRange = 10; // meters
+      let closestLetter = null;
+      let minDistance = Infinity;
+      
+      letters.forEach(letterData => {
+        if (captured.includes(letterData.index)) return;
+        if (letterData.distance < minDistance && letterData.distance < captureRange) {
+          minDistance = letterData.distance;
+          closestLetter = letterData;
+        }
+      });
+      
+      if (closestLetter) {
+        captured.push(closestLetter.index);
+        closestLetter.entity.setAttribute('visible', false);
+        
+        // Haptic feedback
+        if (navigator.vibrate) {
+          navigator.vibrate(200);
+        }
+        
+        updateProgress();
+        checkWin();
+        
+        alert(`✅ Captured ${closestLetter.letter}!\n${targetWord.length - captured.length} letters remaining.`);
+      } else {
+        const nearest = letters
+          .filter(l => !captured.includes(l.index))
+          .sort((a, b) => a.distance - b.distance)[0];
+        
+        if (nearest) {
+          alert(`🚶‍♀️ Walk ${Math.round(nearest.distance - captureRange)}m closer to letter '${nearest.letter}'!\n\nDirection: ${getDirectionArrow(nearest.bearing)}`);
+        }
+      }
+    }
+
+    function updateProgress() {
+      const progress = targetWord.split('')
+        .map((letter, i) => captured.includes(i) ? letter : '_')
+        .join(' ');
+      document.getElementById('progress').textContent = progress;
+    }
+
+    function checkWin() {
+      if (captured.length === targetWord.length) {
+        alert('🎉 Congratulations! You found all the letters!\n\nYou completed a real-world GPS treasure hunt!');
+        
+        if (navigator.vibrate) {
+          navigator.vibrate([200, 100, 200, 100, 200]);
+        }
+        
+        // Reset game
+        setTimeout(() => {
+          captured = [];
+          createLocationBasedLetters();
+          updateProgress();
+        }, 2000);
+      }
+    }
+
+    // Event Listeners
+    document.getElementById('startButton').addEventListener('click', startLocationARMode);
+    document.getElementById('captureButton').addEventListener('click', captureNearestLetter);
+
+    // Initialize
+    requestLocation();
+  </script>
+</body>
+</html>
