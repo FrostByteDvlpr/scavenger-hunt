@@ -92,6 +92,19 @@
       box-shadow: 0 0 30px rgba(255, 215, 0, 0.5);
     }
     
+    .floating-letter.targeted {
+      border-color: #00ff00 !important;
+      color: #00ff00 !important;
+      background: rgba(0, 255, 0, 0.2) !important;
+      box-shadow: 0 0 40px rgba(0, 255, 0, 0.8) !important;
+      animation: targetedPulse 0.8s ease-in-out infinite;
+    }
+    
+    @keyframes targetedPulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
+    
     .floating-letter.captured {
       background: rgba(0, 150, 0, 0.8);
       color: #00FF00;
@@ -140,14 +153,10 @@
       padding: 20px 40px;
       cursor: pointer;
       z-index: 999;
-<<<<<<< Updated upstream
-      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-      font-weight: bold;
-=======
       box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-      transition: background-color 0.3s ease;
+      transition: all 0.3s ease;
     }
-    #capture-btn.ready {
+    #captureButton.ready {
       background-color: #00ff00;
       animation: pulse 1s ease-in-out infinite;
     }
@@ -159,34 +168,37 @@
       position: fixed;
       top: 50%;
       left: 50%;
-      width: 40px;
-      height: 40px;
+      width: 60px;
+      height: 60px;
       transform: translate(-50%, -50%);
-      border: 2px solid rgba(255, 255, 255, 0.8);
+      border: 3px solid rgba(255, 255, 255, 0.9);
       border-radius: 50%;
       z-index: 500;
       pointer-events: none;
       transition: all 0.2s ease;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
     }
     #crosshair::before {
       content: '';
       position: absolute;
       top: 50%;
       left: 50%;
-      width: 20px;
-      height: 2px;
-      background: rgba(255, 255, 255, 0.8);
+      width: 24px;
+      height: 3px;
+      background: rgba(255, 255, 255, 0.9);
       transform: translate(-50%, -50%);
+      box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
     }
     #crosshair::after {
       content: '';
       position: absolute;
       top: 50%;
       left: 50%;
-      width: 2px;
-      height: 20px;
-      background: rgba(255, 255, 255, 0.8);
+      width: 3px;
+      height: 24px;
+      background: rgba(255, 255, 255, 0.9);
       transform: translate(-50%, -50%);
+      box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
     }
     #crosshair.target-locked {
       border-color: #00ff00;
@@ -211,7 +223,6 @@
       font-size: 2.5rem;
       padding: 30px;
       border-radius: 20px;
->>>>>>> Stashed changes
       display: none;
     }
     
@@ -257,26 +268,20 @@
     <button id="startButton">Start Letter Hunt</button>
   </div>
 
-<<<<<<< Updated upstream
   <!-- Camera View -->
   <div id="cameraView" style="display: none;">
     <video id="cameraVideo" autoplay playsinline muted></video>
   </div>
-=======
-  <div id="crosshair"></div>
-  
-  <button id="capture-btn">Capture!</button>
->>>>>>> Stashed changes
 
   <!-- Game UI -->
   <div id="wordDisplay">Find: <strong id="targetWord">BIKE</strong></div>
-  <div id="instructions">Move around to hunt for letters!<br>Tap letters to capture them!</div>
+  <div id="instructions">🎯 Center the crosshair on letters to capture them!<br>The button turns green when ready to capture.</div>
   <div id="debugInfo">Starting camera...</div>
-  <button id="captureButton">🎯 Capture Next!</button>
+  <div id="crosshair"></div>
+  <button id="captureButton">🎯 Capture!</button>
 
   <script>
     const targetWord = "BIKE";
-<<<<<<< Updated upstream
     const captured = [];
     let gameStarted = false;
     let letters = [];
@@ -293,44 +298,6 @@
       if (debugInfo) {
         debugInfo.innerHTML = message;
       }
-=======
-    let captured = [];
-    const progressDisplay = document.getElementById("progress");
-    const winMessage = document.getElementById("win-message");
-    
-    // Debug mode - add ?debug=1 to URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const debugMode = urlParams.get('debug') === '1';
-
-    const lettersContainer = document.getElementById("letters");
-    const camera = document.getElementById("camera");
-    const letterEntities = [];
-
-    // Create floating 3D letters
-    for (let i = 0; i < targetWord.length; i++) {
-      const letter = targetWord[i];
-      const entity = document.createElement("a-entity");
-      entity.setAttribute("text", {
-        value: letter,
-        color: "#FFD700",
-        align: "center",
-        width: 4
-      });
-      const x = (Math.random() - 0.5) * 6;
-      const y = (Math.random() * 2) + 1;
-      const z = (Math.random() - 1.5) * -5;
-      entity.setAttribute("position", `${x} ${y} ${z}`);
-      entity.setAttribute("animation", `
-        property: position;
-        dir: alternate;
-        dur: ${1500 + Math.random()*1000};
-        easing: easeInOutSine;
-        loop: true;
-        to: ${x} ${y + 0.4} ${z};
-      `);
-      lettersContainer.appendChild(entity);
-      letterEntities.push({ letter, entity });
->>>>>>> Stashed changes
     }
 
     // Start button handler
@@ -391,7 +358,6 @@
       }
     }
 
-<<<<<<< Updated upstream
     function setupOrientationTracking() {
       if (window.DeviceOrientationEvent) {
         window.addEventListener('deviceorientation', function(event) {
@@ -452,16 +418,7 @@
           baseWorldZ: -300 + (i * 50)
         };
         
-        // Click handler
-        letterElement.addEventListener('click', function() {
-          captureLetter(letter, i, letterElement);
-        });
-        
-        // Touch handler for mobile
-        letterElement.addEventListener('touchstart', function(e) {
-          e.preventDefault();
-          captureLetter(letter, i, letterElement);
-        });
+        // Remove click handlers - letters can only be captured through targeting
         
         document.body.appendChild(letterElement);
         letters.push(letterData);
@@ -522,147 +479,6 @@
       
       if (captured.includes(index)) {
         updateDebug("Already captured");
-=======
-    function checkCenteredLetter() {
-      const cameraEl = camera.object3D;
-      const cameraPos = new THREE.Vector3();
-      cameraEl.getWorldPosition(cameraPos);
-
-      const cameraDir = new THREE.Vector3();
-      cameraEl.getWorldDirection(cameraDir);
-
-      // Create a raycaster from camera
-      const raycaster = new THREE.Raycaster();
-      raycaster.setFromCamera(new THREE.Vector2(0, 0), cameraEl.parent.camera);
-
-      let closest = null;
-      let minDistance = Infinity;
-
-      letterEntities.forEach(obj => {
-        if (captured.includes(obj.letter)) return;
-
-        const letterPos = new THREE.Vector3();
-        obj.entity.object3D.getWorldPosition(letterPos);
-
-        // Calculate distance from camera to letter
-        const distance = cameraPos.distanceTo(letterPos);
-        
-        // Only consider letters within a reasonable range (1-8 meters)
-        if (distance < 1 || distance > 8) return;
-
-        // Calculate direction from camera to letter
-        const toLetter = letterPos.clone().sub(cameraPos).normalize();
-        const angle = cameraDir.angleTo(toLetter);
-
-        // Much stricter angle threshold (about 2.9 degrees)
-        if (angle > 0.05) return;
-
-        // Check if letter is in the center viewport area
-        const letterScreenPos = letterPos.clone();
-        letterScreenPos.project(cameraEl.parent.camera);
-        
-        // Check if letter is in the center 20% of the screen
-        const centerThreshold = 0.1; // 10% from center in each direction
-        if (Math.abs(letterScreenPos.x) > centerThreshold || 
-            Math.abs(letterScreenPos.y) > centerThreshold) return;
-
-        // Check if this letter is behind the camera (z > 1 means behind)
-        if (letterScreenPos.z > 1) return;
-
-        // Find the closest qualifying letter
-        if (distance < minDistance) {
-          minDistance = distance;
-          closest = obj;
-        }
-      });
-
-      return closest;
-    }
-
-    function getDetailedCaptureInfo() {
-      const cameraEl = camera.object3D;
-      const cameraPos = new THREE.Vector3();
-      cameraEl.getWorldPosition(cameraPos);
-      
-      const cameraDir = new THREE.Vector3();
-      cameraEl.getWorldDirection(cameraDir);
-
-      let nearestLetter = null;
-      let nearestDistance = Infinity;
-      let debugInfo = [];
-
-      letterEntities.forEach(obj => {
-        if (captured.includes(obj.letter)) return;
-
-        const letterPos = new THREE.Vector3();
-        obj.entity.object3D.getWorldPosition(letterPos);
-        
-        const distance = cameraPos.distanceTo(letterPos);
-        const toLetter = letterPos.clone().sub(cameraPos).normalize();
-        const angle = cameraDir.angleTo(toLetter);
-        
-        // Project to screen coordinates
-        const letterScreenPos = letterPos.clone();
-        letterScreenPos.project(cameraEl.parent.camera);
-        
-        debugInfo.push({
-          letter: obj.letter,
-          distance: distance.toFixed(2),
-          angle: (angle * 180 / Math.PI).toFixed(1),
-          screenX: letterScreenPos.x.toFixed(2),
-          screenY: letterScreenPos.y.toFixed(2),
-          screenZ: letterScreenPos.z.toFixed(2)
-        });
-
-        if (distance < nearestDistance) {
-          nearestDistance = distance;
-          nearestLetter = {
-            letter: obj.letter,
-            distance,
-            angle,
-            screenPos: letterScreenPos
-          };
-        }
-      });
-
-      return { nearestLetter, debugInfo };
-    }
-
-    document.getElementById("capture-btn").addEventListener("click", () => {
-      const target = checkCenteredLetter();
-      const info = getDetailedCaptureInfo();
-      
-      if (!target) {
-        let message = "❌ No letter captured!\n\n";
-        
-        if (info.nearestLetter) {
-          const nearest = info.nearestLetter;
-          message += `Nearest letter '${nearest.letter}':\n`;
-          message += `📏 Distance: ${nearest.distance.toFixed(1)}m `;
-          message += `${nearest.distance < 1 ? "(too close!)" : nearest.distance > 8 ? "(too far!)" : "(✓)"}\n`;
-          message += `🎯 Angle: ${(nearest.angle * 180 / Math.PI).toFixed(1)}° `;
-          message += `${nearest.angle > 0.05 ? "(not centered!)" : "(✓)"}\n`;
-          message += `📱 Screen position: (${nearest.screenPos.x.toFixed(2)}, ${nearest.screenPos.y.toFixed(2)}) `;
-          message += `${Math.abs(nearest.screenPos.x) > 0.1 || Math.abs(nearest.screenPos.y) > 0.1 ? "(not in center!)" : "(✓)"}\n`;
-          message += `${nearest.screenPos.z > 1 ? "⚠️ Behind camera!" : ""}`;
-          
-          message += "\n\n💡 Tips:\n";
-          message += "• Point directly at the letter\n";
-          message += "• Keep 1-8 meters away\n";
-          message += "• Center the letter on your screen";
-        } else {
-          message += "No uncaptured letters found!";
-        }
-        
-        if (debugMode) {
-          message += "\n\n🔧 DEBUG INFO:\n";
-          info.debugInfo.forEach(item => {
-            message += `${item.letter}: dist=${item.distance}m, angle=${item.angle}°, screen=(${item.screenX},${item.screenY},${item.screenZ})\n`;
-          });
-        }
-        
-        alert(message);
->>>>>>> Stashed changes
         return;
       }
       
@@ -687,21 +503,108 @@
       }, 1000);
     }
 
-<<<<<<< Updated upstream
-    // Capture button
-    document.getElementById('captureButton').addEventListener('click', () => {
-      updateDebug("Capture button clicked");
+    function getTargetedLetter() {
+      const crosshairX = window.innerWidth / 2;
+      const crosshairY = window.innerHeight / 2;
+      // Make targeting more forgiving on smaller screens
+      const targetRadius = Math.max(60, Math.min(window.innerWidth, window.innerHeight) * 0.1);
       
-      // Capture first available letter
-      for (let i = 0; i < targetWord.length; i++) {
-        if (!captured.includes(i)) {
-          const letterElement = document.querySelector(`[data-index="${i}"]`);
-          if (letterElement && letterElement.style.display !== 'none') {
-            captureLetter(letterElement.getAttribute('data-letter'), i, letterElement);
-            break;
-          }
+      let closestLetter = null;
+      let closestDistance = Infinity;
+      
+      letters.forEach(letterData => {
+        if (captured.includes(letterData.index)) return;
+        if (!letterData.element.parentNode) return;
+        if (letterData.element.style.display === 'none') return;
+        
+        const letterRect = letterData.element.getBoundingClientRect();
+        const letterCenterX = letterRect.left + letterRect.width / 2;
+        const letterCenterY = letterRect.top + letterRect.height / 2;
+        
+        const distance = Math.sqrt(
+          Math.pow(letterCenterX - crosshairX, 2) + 
+          Math.pow(letterCenterY - crosshairY, 2)
+        );
+        
+        if (distance <= targetRadius && distance < closestDistance) {
+          closestDistance = distance;
+          closestLetter = {
+            letterData,
+            distance
+          };
         }
+      });
+      
+      return closestLetter;
+    }
+    
+    function updateTargetingFeedback() {
+      const target = getTargetedLetter();
+      const captureButton = document.getElementById('captureButton');
+      const crosshair = document.getElementById('crosshair');
+      
+      // Remove targeted class from all letters
+      letters.forEach(letterData => {
+        if (letterData.element) {
+          letterData.element.classList.remove('targeted');
+        }
+      });
+      
+      if (target) {
+        captureButton.classList.add('ready');
+        captureButton.textContent = `🎯 Capture ${target.letterData.letter}!`;
+        crosshair.classList.add('target-locked');
+        target.letterData.element.classList.add('targeted');
+        
+        // Light haptic feedback when targeting
+        if (navigator.vibrate && !target.letterData.element.classList.contains('was-targeted')) {
+          navigator.vibrate(50);
+          target.letterData.element.classList.add('was-targeted');
+        }
+      } else {
+        captureButton.classList.remove('ready');
+        captureButton.textContent = '🎯 Capture!';
+        crosshair.classList.remove('target-locked');
+        
+        // Remove was-targeted class from all letters
+        letters.forEach(letterData => {
+          if (letterData.element) {
+            letterData.element.classList.remove('was-targeted');
+          }
+        });
       }
+    }
+    
+    // Update targeting feedback continuously
+    setInterval(updateTargetingFeedback, 100);
+
+    // Capture button with proper targeting
+    document.getElementById('captureButton').addEventListener('click', () => {
+      const target = getTargetedLetter();
+      
+      if (!target) {
+        updateDebug("❌ No letter targeted! Point crosshair at a letter.");
+        
+        // Show helpful message
+        const availableLetters = letters.filter(l => 
+          !captured.includes(l.index) && 
+          l.element.style.display !== 'none'
+        ).map(l => l.letter).join(', ');
+        
+        if (availableLetters) {
+          alert(`🎯 Point your crosshair at a letter!\n\nVisible letters: ${availableLetters}\n\nMove your device to center a letter in your crosshair.`);
+        } else {
+          alert("📱 No letters visible! Move your device around to find letters.");
+        }
+        return;
+      }
+      
+      updateDebug(`✅ Captured: ${target.letterData.letter}`);
+      captureLetter(
+        target.letterData.letter, 
+        target.letterData.index, 
+        target.letterData.element
+      );
     });
 
     function checkProgress() {
@@ -733,44 +636,6 @@
     }
 
     updateDebug("Script loaded - ready to start!");
-=======
-      // Successfully captured
-      captured.push(target.letter);
-      target.entity.setAttribute("visible", false);
-      updateProgress();
-
-      if (captured.length === targetWord.length) {
-        winMessage.style.display = "block";
-        setTimeout(() => winMessage.style.display = "none", 3000);
-      } else {
-        // Show success message
-        alert(`✅ Captured '${target.letter}'!\n${targetWord.length - captured.length} letters remaining.`);
-      }
-    });
-
-    // Real-time targeting feedback
-    const captureButton = document.getElementById("capture-btn");
-    const crosshair = document.getElementById("crosshair");
-    
-    function updateTargeting() {
-      const target = checkCenteredLetter();
-      
-      if (target) {
-        captureButton.classList.add("ready");
-        captureButton.textContent = `Capture ${target.letter}!`;
-        crosshair.classList.add("target-locked");
-      } else {
-        captureButton.classList.remove("ready");
-        captureButton.textContent = "Capture!";
-        crosshair.classList.remove("target-locked");
-      }
-    }
-    
-    // Update targeting feedback every 100ms
-    setInterval(updateTargeting, 100);
-
-    updateProgress();
->>>>>>> Stashed changes
   </script>
 </body>
 </html>
