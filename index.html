@@ -242,6 +242,21 @@
       max-width: 90%;
     }
     
+    #compass {
+      position: fixed;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.8);
+      color: white;
+      padding: 8px 15px;
+      border-radius: 20px;
+      z-index: 10;
+      font-size: 14px;
+      text-align: center;
+      display: none;
+    }
+    
     #debugInfo {
       position: fixed;
       bottom: 20px;
@@ -276,6 +291,7 @@
   <!-- Game UI -->
   <div id="wordDisplay">Find: <strong id="targetWord">BIKE</strong></div>
   <div id="instructions">🎯 Center the crosshair on letters to capture them!<br>The button turns green when ready to capture.</div>
+  <div id="compass">📍 Turn around to find letters</div>
   <div id="debugInfo">Starting camera...</div>
   <div id="crosshair"></div>
   <button id="captureButton">🎯 Capture!</button>
@@ -297,6 +313,59 @@
       console.log(message);
       if (debugInfo) {
         debugInfo.innerHTML = message;
+      }
+    }
+    
+    function updateDebugInfo() {
+      if (!orientationInitialized) return;
+      
+      // Update compass
+      const compass = document.getElementById('compass');
+      if (compass) {
+        const visibleLetters = letters.filter(l => 
+          !captured.includes(l.index) && 
+          l.element.style.display !== 'none'
+        );
+        
+        if (visibleLetters.length > 0) {
+          compass.textContent = `📍 Visible: ${visibleLetters.map(l => l.letter).join(', ')}`;
+        } else {
+          // Give direction hints based on orientation
+          const deltaAlpha = currentOrientation.alpha - initialOrientation.alpha;
+          let hint = "🔄 Turn ";
+          if (Math.abs(deltaAlpha) < 30) {
+            hint += "left or right";
+          } else if (deltaAlpha > 0) {
+            hint += "more right";
+          } else {
+            hint += "more left";
+          }
+          hint += " to find letters";
+          compass.textContent = hint;
+        }
+      }
+      
+      // Update debug info
+      if (debugInfo) {
+        let debugText = `Alpha: ${currentOrientation.alpha.toFixed(1)}°<br>`;
+        debugText += `Beta: ${currentOrientation.beta.toFixed(1)}°<br>`;
+        debugText += `Gamma: ${currentOrientation.gamma.toFixed(1)}°<br><br>`;
+        
+        const visibleLetters = letters.filter(l => 
+          !captured.includes(l.index) && 
+          l.element.style.display !== 'none'
+        );
+        
+        debugText += `Visible: ${visibleLetters.map(l => l.letter).join(', ')}<br>`;
+        
+        const target = getTargetedLetter();
+        if (target) {
+          debugText += `Targeted: ${target.letterData.letter} (${target.distance.toFixed(0)}px)`;
+        } else {
+          debugText += 'No target';
+        }
+        
+        debugInfo.innerHTML = debugText;
       }
     }
 
@@ -334,6 +403,7 @@
         document.getElementById('wordDisplay').style.display = 'block';
         document.getElementById('captureButton').style.display = 'block';
         document.getElementById('instructions').style.display = 'block';
+        document.getElementById('compass').style.display = 'block';
         document.getElementById('debugInfo').style.display = 'block';
         
         updateDebug('Camera started!');
@@ -410,12 +480,12 @@
           index: i,
           element: letterElement,
           // 3D world coordinates (will be converted to screen coords)
-          worldX: (i - 1.5) * 200, // Spread letters horizontally
-          worldY: Math.sin(i) * 100, // Vary height
-          worldZ: -300 + (i * 50), // Vary depth
-          baseWorldX: (i - 1.5) * 200,
-          baseWorldY: Math.sin(i) * 100,
-          baseWorldZ: -300 + (i * 50)
+          worldX: (i - 1.5) * 150, // Spread letters horizontally (closer together)
+          worldY: Math.sin(i * 1.5) * 80, // Vary height (less variation)
+          worldZ: -200 - (i * 30), // Vary depth (closer to camera, less spread)
+          baseWorldX: (i - 1.5) * 150,
+          baseWorldY: Math.sin(i * 1.5) * 80,
+          baseWorldZ: -200 - (i * 30)
         };
         
         // Remove click handlers - letters can only be captured through targeting
@@ -447,12 +517,14 @@
         let z = letterData.baseWorldZ;
         
         // Simple rotation around Y axis (left-right phone movement)
-        const rotatedX = x * Math.cos(-deltaAlpha) - z * Math.sin(-deltaAlpha);
-        const rotatedZ = x * Math.sin(-deltaAlpha) + z * Math.cos(-deltaAlpha);
+        // Invert rotation so letters stay in world space when camera moves
+        const rotatedX = x * Math.cos(deltaAlpha) - z * Math.sin(deltaAlpha);
+        const rotatedZ = x * Math.sin(deltaAlpha) + z * Math.cos(deltaAlpha);
         
         // Simple rotation around X axis (up-down phone movement)  
-        const rotatedY = y * Math.cos(deltaBeta) - rotatedZ * Math.sin(deltaBeta);
-        const finalZ = y * Math.sin(deltaBeta) + rotatedZ * Math.cos(deltaBeta);
+        // Invert rotation so letters stay in world space when camera tilts
+        const rotatedY = y * Math.cos(-deltaBeta) - rotatedZ * Math.sin(-deltaBeta);
+        const finalZ = y * Math.sin(-deltaBeta) + rotatedZ * Math.cos(-deltaBeta);
         
         // Convert 3D world coordinates to 2D screen coordinates
         const screenX = window.innerWidth / 2 + rotatedX;
@@ -575,8 +647,11 @@
       }
     }
     
-    // Update targeting feedback continuously
-    setInterval(updateTargetingFeedback, 100);
+    // Update targeting feedback and debug info continuously
+    setInterval(() => {
+      updateTargetingFeedback();
+      updateDebugInfo();
+    }, 100);
 
     // Capture button with proper targeting
     document.getElementById('captureButton').addEventListener('click', () => {
